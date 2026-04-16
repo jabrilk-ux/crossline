@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
-interface CrossingRecord {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export interface CrossingEvent {
   fromState: string | null;
   toState: string;
   crossedAt: string; // ISO timestamp
@@ -8,17 +10,22 @@ interface CrossingRecord {
 
 interface LocationState {
   currentState: string | null;
-  crossingHistory: CrossingRecord[];
+  previousState: string | null;
+  crossingHistory: CrossingEvent[];
   isTracking: boolean;
 
   // Actions
   setCurrentState: (state: string | null) => void;
   recordCrossing: (fromState: string | null, toState: string) => void;
   setTracking: (tracking: boolean) => void;
+  clearHistory: () => void;
 }
+
+// ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useLocationStore = create<LocationState>((set) => ({
   currentState: null,
+  previousState: null,
   crossingHistory: [],
   isTracking: false,
 
@@ -26,6 +33,7 @@ export const useLocationStore = create<LocationState>((set) => ({
 
   recordCrossing: (fromState, toState) =>
     set((s) => ({
+      previousState: s.currentState,
       currentState: toState,
       crossingHistory: [
         { fromState, toState, crossedAt: new Date().toISOString() },
@@ -34,4 +42,6 @@ export const useLocationStore = create<LocationState>((set) => ({
     })),
 
   setTracking: (tracking) => set({ isTracking: tracking }),
+
+  clearHistory: () => set({ crossingHistory: [] }),
 }));
