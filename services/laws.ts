@@ -141,31 +141,55 @@ export async function getCarryStatusForUser(
     .eq('category', 'carry')
     .not('carry_status', 'is', null)
     .order('updated_at', { ascending: false })
-    .limit(5);
+    .limit(10);
 
   if (error || !data || data.length === 0) return 'unknown';
 
-  const userPermitTypes = permits
-    .filter(p => p.stateCode === stateCode || p.permitType === 'resident')
-    .map(p => p.permitType);
+  // Build permit type sets for this state.
+  // A permit "applies" if it is issued for this state (resident or non-resident)
+  // OR if it is a resident permit from the user's home state (reciprocity case).
+  const hasResidentPermit = permits.some(
+    p => p.stateCode === stateCode && p.permitType === 'resident'
+  );
+  const hasNonResidentPermit = permits.some(
+    p => p.stateCode === stateCode && p.permitType === 'non-resident'
+  );
+  // Any resident permit from any state counts for permitless / broad reciprocity checks
+  const hasAnyResidentPermit = permits.some(p => p.permitType === 'resident');
 
-  // Check for any explicit prohibition
-  const prohibited = data.find(r => r.carry_status === 'prohibited');
-  if (prohibited) return 'prohibited';
+  function rowMatchesUser(filters: string[]): boolean {
+    if (filters.length === 0) return true;
+    if (filters.includes('permitless')) return true;
+    if (filters.includes('resident') && (hasResidentPermit || hasAnyResidentPermit)) return true;
+    if (filters.includes('non-resident') && hasNonResidentPermit) return true;
+    return false;
+  }
 
-  // Find rows that match user's permit filters
-  for (const row of data) {
-    const filters: string[] = row.permit_filter ?? [];
-    const hasMatch =
-      filters.length === 0 ||
-      userPermitTypes.some(pt => filters.includes(pt)) ||
-      filters.includes('permitless');
+  // Separate rows by whether they match the user's actual permit stack
+  const matchingRows = data.filter(r => rowMatchesUser(r.permit_filter ?? []));
+  const nonMatchingRows = data.filter(r => !rowMatchesUser(r.permit_filter ?? []));
 
-    if (hasMatch) {
-      return (row.carry_status as CarryStatus) ?? 'unknown';
+  // 1. If user has a matching row that is allowed or restricted, use it.
+  //    Resident rows take priority — evaluate them first.
+  const residentFirst = [...matchingRows].sort((a, b) => {
+    const aRes = (a.permit_filter ?? []).includes('resident') ? 0 : 1;
+    const bRes = (b.permit_filter ?? []).includes('resident') ? 0 : 1;
+    return aRes - bRes;
+  });
+
+  for (const row of residentFirst) {
+    if (row.carry_status === 'allowed' || row.carry_status === 'restricted') {
+      return row.carry_status as CarryStatus;
     }
   }
 
-  // Carry data exists but none of the filters match user's permits
-  return 'prohibited';
+  // 2. If matching rows only returned prohibited, honour that.
+  if (matchingRows.some(r => r.carry_status === 'prohibited')) return 'prohibited';
+
+  // 3. No matching rows — check if a prohibited row exists for non-matching
+  //    permit types (e.g. non-resident row when user has no non-resident permit).
+  //    Only surface prohibited if ALL rows prohibit and none allow.
+  if (nonMatchingRows.length > 0 && matchingRows.length === 0) return 'prohibited';
+
+  return 'unknown';
 }
