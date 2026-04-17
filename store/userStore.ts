@@ -16,6 +16,8 @@ export interface FirearmsProfile {
   carryPurpose: 'ccw' | 'transport' | 'hunting' | null;
 }
 
+export type SubscriptionTier = 'free' | 'pro' | 'pro_plus';
+
 interface UserState {
   userId: string | null;
   homeState: string | null;
@@ -23,12 +25,25 @@ interface UserState {
   firearmsProfile: FirearmsProfile;
   isOnboarded: boolean;
 
+  // Subscription
+  subscriptionTier: SubscriptionTier;
+  customerInfo: Record<string, unknown> | null; // CustomerInfo from react-native-purchases
+
+  // Crossing alert quota (free tier: 3/month)
+  monthlyAlertCount: number;
+  alertCountResetMonth: string; // 'YYYY-MM'
+
   // Actions
   setUserId: (id: string | null) => void;
   setProfile: (homeState: string, firearmsProfile: FirearmsProfile) => void;
   addPermit: (permit: Permit) => void;
   removePermit: (permitId: string) => void;
   setOnboarded: (value: boolean) => void;
+  setSubscriptionTier: (tier: SubscriptionTier) => void;
+  setCustomerInfo: (info: Record<string, unknown> | null) => void;
+  incrementAlertCount: () => void;
+  resetAlertCount: () => void;
+  setAlertCountResetMonth: (month: string) => void;
   reset: () => void;
 }
 
@@ -49,6 +64,10 @@ export const useUserStore = create<UserState>((set) => ({
   permits: [],
   firearmsProfile: defaultFirearmsProfile,
   isOnboarded: false,
+  subscriptionTier: 'free',
+  customerInfo: null,
+  monthlyAlertCount: 0,
+  alertCountResetMonth: '',
 
   setUserId: (id) => set({ userId: id }),
 
@@ -63,6 +82,17 @@ export const useUserStore = create<UserState>((set) => ({
 
   setOnboarded: (value) => set({ isOnboarded: value }),
 
+  setSubscriptionTier: (tier) => set({ subscriptionTier: tier }),
+
+  setCustomerInfo: (info) => set({ customerInfo: info }),
+
+  incrementAlertCount: () =>
+    set((state) => ({ monthlyAlertCount: state.monthlyAlertCount + 1 })),
+
+  resetAlertCount: () => set({ monthlyAlertCount: 0 }),
+
+  setAlertCountResetMonth: (month) => set({ alertCountResetMonth: month }),
+
   reset: () =>
     set({
       userId: null,
@@ -70,5 +100,9 @@ export const useUserStore = create<UserState>((set) => ({
       permits: [],
       firearmsProfile: defaultFirearmsProfile,
       isOnboarded: false,
+      subscriptionTier: 'free',
+      customerInfo: null,
+      monthlyAlertCount: 0,
+      alertCountResetMonth: '',
     }),
 }));

@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { colors, typography, statusColors } from '../../constants/theme';
 import { useUserStore } from '../../store/userStore';
+import { useSubscription } from '../../hooks/useSubscription';
 import {
   geocodeAddress, getStatesAlongRoute, buildTripBriefing,
   type GeocodedLocation, type TripState,
@@ -489,6 +490,7 @@ const empty = StyleSheet.create({
 
 export default function TripScreen() {
   const { permits, firearmsProfile } = useUserStore();
+  const { isPro, openPaywall } = useSubscription();
 
   const [originLoc, setOriginLoc] = useState<LockedLocation | null>(null);
   const [destLoc, setDestLoc] = useState<LockedLocation | null>(null);
@@ -590,7 +592,18 @@ export default function TripScreen() {
         )}
 
         {/* ── Main content ── */}
-        {loading ? (
+        {!isPro ? (
+          <View style={styles.lockedOverlay}>
+            <Text style={styles.lockedIcon}>🔒</Text>
+            <Text style={styles.lockedTitle}>Trip Planner is a Pro feature</Text>
+            <Text style={styles.lockedSub}>
+              Upgrade to Pro to get a full legal briefing for every state on your route.
+            </Text>
+            <TouchableOpacity style={styles.lockedUpgradeBtn} onPress={openPaywall} activeOpacity={0.85}>
+              <Text style={styles.lockedUpgradeText}>Upgrade to Pro</Text>
+            </TouchableOpacity>
+          </View>
+        ) : loading ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator color={colors.sky} size="large" />
             <Text style={styles.loadingText}>Building your trip briefing…</Text>
@@ -716,5 +729,39 @@ const styles = StyleSheet.create({
     fontFamily: typography.caption.fontFamily,
     fontSize: typography.caption.fontSize,
     color: colors.slate,
+  },
+
+  lockedOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    gap: 14,
+  },
+  lockedIcon: { fontSize: 44 },
+  lockedTitle: {
+    fontFamily: typography.h2.fontFamily,
+    fontSize: typography.h2.fontSize,
+    color: colors.white,
+    textAlign: 'center',
+  },
+  lockedSub: {
+    fontFamily: typography.body.fontFamily,
+    fontSize: typography.body.fontSize,
+    color: colors.silver,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  lockedUpgradeBtn: {
+    backgroundColor: colors.sky,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    marginTop: 6,
+  },
+  lockedUpgradeText: {
+    fontFamily: typography.h2.fontFamily,
+    fontSize: typography.h2.fontSize,
+    color: colors.white,
   },
 });

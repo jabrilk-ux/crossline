@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { colors, typography } from '../../constants/theme';
 import { useUserStore, type Permit, type FirearmsProfile } from '../../store/userStore';
 import { useLocationStore } from '../../store/locationStore';
+import { useSubscription } from '../../hooks/useSubscription';
 import { STATES } from '../../constants/states';
 import {
   signOut, insertPermit, deletePermit, upsertUserProfile, getSession,
@@ -224,10 +225,24 @@ function SectionHeader({ title }: { title: string }) {
 
 // ─── Profile Screen ───────────────────────────────────────────────────────────
 
+function renewalDate(customerInfo: Record<string, unknown> | null): string | null {
+  try {
+    const active = (customerInfo as any)?.entitlements?.active ?? {};
+    const entitlement = active['pro_plus'] ?? active['pro'];
+    if (!entitlement?.expirationDate) return null;
+    return new Date(entitlement.expirationDate).toLocaleDateString([], {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
+  } catch {
+    return null;
+  }
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
-  const { permits, firearmsProfile, homeState, addPermit, removePermit, setProfile, reset } = useUserStore();
+  const { permits, firearmsProfile, homeState, addPermit, removePermit, setProfile, reset, subscriptionTier, customerInfo } = useUserStore();
   const locationStore = useLocationStore();
+  const { openPaywall } = useSubscription();
 
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setLocalUserId] = useState<string | null>(null);
@@ -397,12 +412,35 @@ export default function ProfileScreen() {
 
         {/* Subscription */}
         <SectionHeader title="Subscription" />
-        <View style={styles.proCard}>
-          <Text style={styles.proIcon}>🔒</Text>
-          <View>
-            <Text style={styles.proTitle}>Crossline Pro</Text>
-            <Text style={styles.proSub}>Coming Soon</Text>
+        <View style={styles.subCard}>
+          <View style={styles.subCardLeft}>
+            <View style={styles.subTierBadge}>
+              <Text style={styles.subTierText}>
+                {subscriptionTier === 'free' ? 'Free' :
+                 subscriptionTier === 'pro' ? 'Pro' : 'Pro+'}
+              </Text>
+            </View>
+            <View>
+              <Text style={styles.subTitle}>
+                {subscriptionTier === 'free' ? 'Crossline Free' :
+                 subscriptionTier === 'pro' ? 'Crossline Pro' : 'Crossline Pro+'}
+              </Text>
+              {subscriptionTier !== 'free' && renewalDate(customerInfo) ? (
+                <Text style={styles.subRenewal}>Renews {renewalDate(customerInfo)}</Text>
+              ) : subscriptionTier === 'free' ? (
+                <Text style={styles.subRenewal}>3 crossing alerts/month</Text>
+              ) : null}
+            </View>
           </View>
+          <TouchableOpacity
+            style={[styles.subManageBtn, subscriptionTier === 'free' && styles.subUpgradeBtn]}
+            onPress={openPaywall}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.subManageText, subscriptionTier === 'free' && styles.subUpgradeText]}>
+              {subscriptionTier === 'free' ? 'Upgrade' : 'Manage'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Account */}
@@ -459,10 +497,16 @@ const styles = StyleSheet.create({
   toggleLabel: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.white },
   toggleSub: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.silver, marginTop: 2 },
 
-  proCard: { backgroundColor: colors.sky, borderRadius: 12, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 8 },
-  proIcon: { fontSize: 24 },
-  proTitle: { fontFamily: typography.h2.fontFamily, fontSize: typography.h2.fontSize, color: colors.white },
-  proSub: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.white, opacity: 0.75, marginTop: 2 },
+  subCard: { backgroundColor: colors.steel, borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.border, marginBottom: 8 },
+  subCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  subTierBadge: { backgroundColor: colors.sky + '33', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.sky + '66' },
+  subTierText: { fontFamily: typography.mono.fontFamily, fontSize: 12, color: colors.sky, fontWeight: '700' },
+  subTitle: { fontFamily: typography.h2.fontFamily, fontSize: typography.body.fontSize, color: colors.white },
+  subRenewal: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.silver, marginTop: 2 },
+  subManageBtn: { backgroundColor: colors.steel, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: colors.border },
+  subManageText: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.silver, fontWeight: '600' },
+  subUpgradeBtn: { backgroundColor: colors.sky, borderColor: colors.sky },
+  subUpgradeText: { color: colors.white },
 
   accountCard: { backgroundColor: colors.steel, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 8 },
   accountLabel: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.silver, marginBottom: 4 },

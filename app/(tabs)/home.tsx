@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { colors, typography, statusColors } from '../../constants/theme';
 import { useLocationStore } from '../../store/locationStore';
 import { useUserStore } from '../../store/userStore';
+import { useSubscription } from '../../hooks/useSubscription';
 import { getStateFullName } from '../../services/geofence';
 import { getStateName } from '../../constants/states';
 import { _devSimulateCrossing } from '../../services/location';
@@ -244,8 +245,10 @@ function DevCrossingSimulator() {
 export default function HomeScreen() {
   const router = useRouter();
   const { currentState, isTracking, crossingHistory } = useLocationStore();
-  const { permits, firearmsProfile } = useUserStore();
+  const { permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
+  const { openPaywall } = useSubscription();
   const [carryStatus, setCarryStatus] = useState<CarryStatus>('unknown');
+  const alertLimitReached = subscriptionTier === 'free' && monthlyAlertCount >= 3;
 
   const lastCrossedAt = crossingHistory[0]?.crossedAt ?? null;
 
@@ -274,6 +277,16 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Alert limit banner */}
+        {alertLimitReached && (
+          <Pressable style={styles.alertBanner} onPress={openPaywall}>
+            <Text style={styles.alertBannerText}>
+              You've used your 3 free crossing alerts this month.{' '}
+              <Text style={styles.alertBannerLink}>Upgrade to Pro for unlimited alerts →</Text>
+            </Text>
+          </Pressable>
+        )}
+
         {/* Hero card */}
         <HeroStateCard
           stateCode={currentState}
@@ -318,6 +331,25 @@ const styles = StyleSheet.create({
   settingsIcon: { fontSize: 20, color: colors.silver },
 
   scroll: { paddingHorizontal: 20, paddingBottom: 48 },
+
+  alertBanner: {
+    backgroundColor: colors.warning + '22',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.warning + '55',
+  },
+  alertBannerText: {
+    fontFamily: typography.caption.fontFamily,
+    fontSize: typography.caption.fontSize,
+    color: colors.warning,
+    lineHeight: 18,
+  },
+  alertBannerLink: {
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
 
   // Hero card
   heroCard: {
