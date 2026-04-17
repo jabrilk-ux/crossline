@@ -6,7 +6,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "scrape": "ts-node --project tsconfig.scraper.json scripts/scraper/index.ts",
+    "scrape:dry": "ts-node --project tsconfig.scraper.json scripts/scraper/index.ts --dry-run"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
@@ -34,9 +36,18 @@
     "zustand": "^4.5.7"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
+    "@types/cheerio": "^0.22.35",
     "@types/geojson": "^7946.0.16",
+    "@types/node": "^25.6.0",
     "@types/react": "~19.1.0",
-    "typescript": "~5.9.2"
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
+    "p-limit": "^4.0.0",
+    "playwright": "^1.59.1",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.9.2",
+    "winston": "^3.19.0"
   },
   "private": true
 }
