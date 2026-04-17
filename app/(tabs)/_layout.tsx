@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, typography } from '../../constants/theme';
 
 export default function TabsLayout() {
@@ -15,11 +16,46 @@ export default function TabsLayout() {
         },
       }}
     >
-      <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="map" options={{ title: 'Map' }} />
-      <Tabs.Screen name="laws" options={{ title: 'Laws' }} />
-      <Tabs.Screen name="trip" options={{ title: 'Trip' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color, size, focused }) =>
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Map',
+          tabBarIcon: ({ color, size, focused }) =>
+            <Ionicons name={focused ? 'map' : 'map-outline'} size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="laws"
+        options={{
+          title: 'Laws',
+          tabBarIcon: ({ color, size, focused }) =>
+            <Ionicons name={focused ? 'book' : 'book-outline'} size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="trip"
+        options={{
+          title: 'Trip',
+          tabBarIcon: ({ color, size, focused }) =>
+            <Ionicons name={focused ? 'git-branch' : 'git-branch-outline'} size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, size, focused }) =>
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
