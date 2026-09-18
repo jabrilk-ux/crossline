@@ -16,7 +16,7 @@ export default function WelcomeScreen() {
         <View style={styles.bottom}>
           <TouchableOpacity
             style={styles.ctaButton}
-            onPress={() => router.push('/(auth)/onboarding')}
+            onPress={() => router.push('/(auth)/login?mode=signup')}
             activeOpacity={0.85}
           >
             <Text style={styles.ctaText}>Get Started</Text>

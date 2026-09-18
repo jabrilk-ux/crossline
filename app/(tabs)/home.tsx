@@ -43,10 +43,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: CarryStatus }) {
   const label: Record<CarryStatus, string> = {
-    allowed: 'Carry Permitted',
+    allowed: 'Reviewed guidance available',
     restricted: 'Restrictions Apply',
     prohibited: 'Carry Not Permitted',
-    unknown: 'Status Unknown',
+    unknown: 'Unable to determine',
   };
   return (
     <View style={[styles.badge, { backgroundColor: statusColors[status] + '22', borderColor: statusColors[status] }]}>
@@ -84,8 +84,8 @@ function HeroStateCard({
     return (
       <View style={styles.heroCard}>
         <Text style={styles.heroLabel}>Current State</Text>
-        <Text style={styles.heroPlaceholder}>Tracking your location...</Text>
-        <Text style={styles.heroSub}>GPS acquiring signal</Text>
+        <Text style={styles.heroPlaceholder}>Choose a state to get started</Text>
+        <Text style={styles.heroSub}>Browse Laws, or enable tracking in Profile.</Text>
       </View>
     );
   }
@@ -128,14 +128,17 @@ function LawHighlightCard({ law }: { law: StateLaw }) {
 function TopLawHighlights({ stateCode }: { stateCode: string }) {
   const [laws, setLaws] = useState<StateLaw[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    getTopLawsForState(stateCode, 3).then(data => {
-      setLaws(data);
-      setLoading(false);
-    });
-  }, [stateCode]);
+    let active = true;
+    setLoading(true); setError('');
+    getTopLawsForState(stateCode, 3).then(data => { if(active) setLaws(data); })
+      .catch(() => { if(active) setError('Could not load laws. Tap to retry.'); })
+      .finally(() => { if(active) setLoading(false); });
+    return () => { active=false; };
+  }, [stateCode, retry]);
 
   return (
     <View style={styles.highlightsSection}>
@@ -146,12 +149,10 @@ function TopLawHighlights({ stateCode }: { stateCode: string }) {
           <SkeletonCard />
           <SkeletonCard />
         </>
+      ) : error ? (
+        <Pressable onPress={() => setRetry(n => n+1)}><Text style={styles.emptyFeedText}>{error}</Text></Pressable>
       ) : laws.length === 0 ? (
-        <>
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </>
+        <Text style={styles.emptyFeedText}>No current reviewed law summaries are available for this state yet.</Text>
       ) : (
         laws.map(law => <LawHighlightCard key={law.id} law={law} />)
       )}
@@ -170,7 +171,7 @@ function CrossingFeed() {
     return (
       <View style={styles.emptyFeed}>
         <Text style={styles.emptyFeedText}>No crossings recorded yet.</Text>
-        <Text style={styles.emptyFeedSub}>Start driving.</Text>
+        <Text style={styles.emptyFeedSub}>History is optional. Enable saving in Profile.</Text>
       </View>
     );
   }
@@ -248,19 +249,18 @@ export default function HomeScreen() {
   const { permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
   const { openPaywall } = useSubscription();
   const [carryStatus, setCarryStatus] = useState<CarryStatus>('unknown');
-  const alertLimitReached = subscriptionTier === 'free' && monthlyAlertCount >= 3;
+  const alertLimitReached = false;
 
   const lastCrossedAt = crossingHistory[0]?.crossedAt ?? null;
 
-  const refreshCarryStatus = useCallback(async () => {
-    if (!currentState) return;
-    const status = await getCarryStatusForUser(currentState, permits, firearmsProfile);
-    setCarryStatus(status);
-  }, [currentState, permits, firearmsProfile]);
-
   useEffect(() => {
-    refreshCarryStatus();
-  }, [refreshCarryStatus]);
+    let active = true;
+    setCarryStatus('unknown');
+    if (currentState) void getCarryStatusForUser(currentState, permits, firearmsProfile)
+      .then(status => { if(active) setCarryStatus(status); })
+      .catch(() => { if(active) setCarryStatus('unknown'); });
+    return () => { active=false; };
+  }, [currentState, permits, firearmsProfile]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -277,16 +277,9 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Alert limit banner */}
-        {alertLimitReached && (
-          <Pressable style={styles.alertBanner} onPress={openPaywall}>
-            <Text style={styles.alertBannerText}>
-              You've used your 3 free crossing alerts this month.{' '}
-              <Text style={styles.alertBannerLink}>Upgrade to Pro for unlimited alerts →</Text>
-            </Text>
-          </Pressable>
-        )}
-
+        <Text style={styles.emptyFeedSub}>Free beta · Reviewed coverage is limited. Verify official sources before acting.</Text>
+        {!isTracking && <Pressable onPress={() => router.push('/(tabs)/profile')}><Text style={styles.heroTap}>Automatic tracking is off. Manage location in Profile →</Text></Pressable>}
+        <Pressable onPress={() => router.push('/(tabs)/laws')}><Text style={styles.heroTap}>Browse laws by state →</Text></Pressable>
         {/* Hero card */}
         <HeroStateCard
           stateCode={currentState}

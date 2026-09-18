@@ -16,7 +16,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.crossline.app",
       "infoPlist": {
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -29,7 +31,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       [
@@ -39,22 +42,16 @@
           "locationAlwaysPermission": "This app uses your location in the background to detect state line crossings and alert you to changes in firearm laws.",
           "locationWhenInUsePermission": "This app uses your location in the background to detect state line crossings and alert you to changes in firearm laws.",
           "isIosBackgroundLocationEnabled": true,
-          "isAndroidBackgroundLocationEnabled": true
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#38BDF8",
-          "sounds": []
-        }
-      ]
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      "expo-router",
+      "expo-notifications"
     ],
-    "extra": {
-      "eas": {
-        "projectId": "crossline"
-      }
-    }
+    "scheme": "crossline"
   }
 }

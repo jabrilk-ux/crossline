@@ -1,13 +1,16 @@
+import { requestCrossingNotifications } from '../../services/notifications';
+import { loadAccount } from '../../services/account';
+import { savePreferences } from '../../services/preferences';
 import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
   ScrollView, TextInput, Switch, Alert, ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Redirect } from 'expo-router';
 import { colors, typography } from '../../constants/theme';
 import { STATES } from '../../constants/states';
 import { requestPermissions } from '../../services/location';
-import { upsertUserProfile, insertPermit, getSession } from '../../services/supabase';
+import { supabase, getSession } from '../../services/supabase';
 import { useUserStore, type Permit, type FirearmsProfile } from '../../store/userStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -270,16 +273,14 @@ function StepLocation({
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Enable background location</Text>
       <Text style={styles.stepSubtitle}>
-        Crossline works by passively monitoring your location in the background —
-        exactly like Waze running while you drive.
+        Enable optional background tracking for state-crossing alerts. You can finish setup without granting location access.
       </Text>
       <Text style={styles.locationDetail}>
-        When you cross a state line, we instantly surface that state's gun laws
-        personalized to your profile. No manual searching required.
+        Alerts appear after a crossing is confirmed. Device settings and signal quality can delay alerts. Reviewed coverage is limited during beta.
       </Text>
       <Text style={styles.locationDetail}>
         Your location data is processed on-device. We never store your GPS
-        coordinates — only the state-level crossing event.
+        coordinates. Saving state-level crossing history is off by default.
       </Text>
       <Text style={styles.locationDetail}>
         You can disable background tracking at any time in Settings.
@@ -293,7 +294,7 @@ function StepLocation({
       {permissionGranted === false && (
         <View style={styles.permissionDenied}>
           <Text style={styles.permissionDeniedText}>
-            Permission denied. You can grant it later in iOS Settings → Crossline → Location → Always.
+            Background access was not granted. Enable it later in your device settings, or continue without tracking.
           </Text>
         </View>
       )}
@@ -310,7 +311,7 @@ function StepLocation({
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { setProfile, addPermit, setOnboarded, setUserId } = useUserStore();
+  const { userId: signedInId, setProfile, addPermit, setOnboarded, setUserId } = useUserStore();
 
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -324,6 +325,7 @@ export default function OnboardingScreen() {
     hasSuppressor: false,
   });
   // Step 4
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
 
   function canAdvance(): boolean {
@@ -335,8 +337,8 @@ export default function OnboardingScreen() {
   }
 
   async function handleLocationRequest() {
-    const granted = await requestPermissions();
-    setPermissionGranted(granted);
+    try { const granted = await requestPermissions(); setPermissionGranted(granted); if (granted) setNotificationsEnabled(await requestCrossingNotifications()); }
+    catch { setPermissionGranted(false); }
   }
 
   async function handleFinish() {
@@ -357,40 +359,26 @@ export default function OnboardingScreen() {
         carryPurpose: firearmsProfile.carryPurpose ?? null,
       };
 
-      await upsertUserProfile({
+      if (profile.magCapacity !== null && (!Number.isInteger(profile.magCapacity) || profile.magCapacity <= 0)) throw new Error('Magazine capacity must be a positive whole number.');
+      const { error: saveError } = await supabase.rpc('save_onboarding', { profile: {
         id: userId,
         home_state: homeState,
         carry_purpose: profile.carryPurpose,
         firearm_type: profile.firearmsType,
         mag_capacity: profile.magCapacity,
         has_suppressor: profile.hasSuppressor,
-      });
+      }, permits: draftPermits.map(dp => ({ state_code: dp.stateCode, permit_type: dp.permitType, expiry_date: dp.expiryDate || null })) });
+      if (saveError) throw saveError;
 
-      for (const dp of draftPermits) {
-        const { data } = await insertPermit({
-          user_id: userId,
-          state_code: dp.stateCode,
-          permit_type: dp.permitType,
-          expiry_date: dp.expiryDate || null,
-        });
-        if (data) {
-          const permit: Permit = {
-            id: data.id,
-            stateCode: data.state_code,
-            permitType: data.permit_type,
-            expiryDate: data.expiry_date,
-          };
-          addPermit(permit);
-        }
-      }
-
+      await savePreferences(userId, { tracking: permissionGranted === true, alerts: notificationsEnabled });
+      await loadAccount(userId);
       setUserId(userId);
       setProfile(homeState, profile);
       setOnboarded(true);
 
       router.replace('/(tabs)/home');
     } catch (err) {
-      Alert.alert('Error', 'Failed to save profile. Please try again.');
+      Alert.alert('Could not save profile', err instanceof Error ? err.message : 'Check your entries and connection, then retry.');
     } finally {
       setSaving(false);
     }
@@ -403,6 +391,8 @@ export default function OnboardingScreen() {
       handleFinish();
     }
   }
+
+  if (!signedInId) return <Redirect href="/(auth)/login" />;
 
   function handleBack() {
     if (step > 1) setStep(s => s - 1);

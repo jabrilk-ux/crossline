@@ -1,149 +1,106 @@
-/**
- * services/location.ts
- * Abstraction layer over the underlying location provider.
- *
- * CURRENT PROVIDER: expo-location (watchPositionAsync, Accuracy.Balanced)
- *
- * ─────────────────────────────────────────────────────────────────────────────
- * TO SWAP IN react-native-background-geolocation (paid, Transistor Software):
- *   1. Replace the ── SWAP POINT ── block in startTracking() with:
- *        BackgroundGeolocation.onLocation(loc => {
- *          _handleLocationUpdate(loc.coords.latitude, loc.coords.longitude);
- *        });
- *        BackgroundGeolocation.ready({ desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_MEDIUM });
- *        BackgroundGeolocation.start();
- *   2. Replace stopTracking() body with: BackgroundGeolocation.stop()
- *   3. Remove the ExpoLocation import.
- *   4. No other file needs to change.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
-import * as ExpoLocation from 'expo-location';
-import { detectStateFromCoords, hasCrossed } from './geofence';
+import * as Location from 'expo-location';
+import * as TaskManager from 'expo-task-manager';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import { detectStateFromCoords } from './geofence';
+import { supabase, logCrossingEvent } from './supabase';
+import { getPreferences } from './preferences';
 import { useLocationStore } from '../store/locationStore';
-import { logCrossingEvent, getSession } from './supabase';
+import { useUserStore } from '../store/userStore';
+import { loadAccount } from './account';
+import { getCarryStatusForUser } from './laws';
+import { sendCrossingAlert } from './notifications';
+import { advanceCrossing, initialCrossing, type CrossingState } from './crossing';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-export type StateCrossingCallback = (newState: string, prevState: string | null) => void;
-
-interface LocationSubscription {
-  remove: () => void;
-}
-
-// ─── Module state ─────────────────────────────────────────────────────────────
-
-let _subscription: LocationSubscription | null = null;
-let _crossingListeners: StateCrossingCallback[] = [];
-
-// ─── Internal update handler ──────────────────────────────────────────────────
-
-async function _handleLocationUpdate(latitude: number, longitude: number): Promise<void> {
-  const store = useLocationStore.getState();
-  const prevState = store.currentState;
-  const newState = detectStateFromCoords(latitude, longitude);
-
-  if (!hasCrossed(prevState, newState)) return;
-
-  // Update store
-  store.recordCrossing(prevState, newState!);
-
-  // Notify listeners
-  _crossingListeners.forEach(cb => cb(newState!, prevState));
-
-  // Persist to Supabase (best-effort, non-blocking)
-  try {
-    const { data: sessionData } = await getSession();
-    const userId = sessionData.session?.user?.id;
-    if (userId) {
-      await logCrossingEvent(userId, prevState, newState!);
-    }
-  } catch (err) {
-    if (__DEV__) console.warn('[location] Failed to log crossing to Supabase:', err);
+const TASK = 'crossline-state-crossings';
+let subscription: Location.LocationSubscription | null = null;
+let work = Promise.resolve();
+let starting: Promise<void> | null = null;
+let trackingGeneration = 0;
+async function processPosition(location: Location.LocationObject) {
+  const { data } = await supabase.auth.getSession();
+  const id = data.session?.user.id;
+  if (!id) return;
+  const prefs = await getPreferences(id);
+  if (!prefs.tracking) return;
+  const key = `crossline:crossing:${id}`;
+  const raw = await AsyncStorage.getItem(key);
+  const previous: CrossingState = raw ? JSON.parse(raw) : initialCrossing;
+  const code = detectStateFromCoords(location.coords.latitude, location.coords.longitude);
+  const next = advanceCrossing(previous, code, location.timestamp, location.coords.accuracy);
+  await AsyncStorage.setItem(key, JSON.stringify(next.state));
+  useLocationStore.getState().setCurrentState(next.state.current);
+  if (!next.crossed || !next.state.current) return;
+  if (useUserStore.getState().userId !== id) {
+    useUserStore.getState().reset();
+    useUserStore.getState().setUserId(id);
+    try { await loadAccount(id); } catch { /* Unknown guidance is safe offline. */ }
+  }
+  const profile = useUserStore.getState();
+  // A session change or tracking stop during the request cancels delivery.
+  if (profile.userId !== id || !(await getPreferences(id)).tracking) return;
+  let notificationId: string | null = null;
+  if ((await getPreferences(id)).alerts) {
+    const status = await getCarryStatusForUser(next.state.current, profile.permits, profile.firearmsProfile);
+    const latest = await getPreferences(id);
+    const { data: currentAuth } = await supabase.auth.getSession();
+    if (currentAuth.session?.user.id !== id || !latest.tracking) return;
+    if (latest.alerts) notificationId = await sendCrossingAlert(next.state.current, status);
+  }
+  if ((await getPreferences(id)).saveHistory && useUserStore.getState().userId === id) {
+    useLocationStore.getState().recordCrossing(previous.current, next.state.current);
+    const { error } = await logCrossingEvent(id, previous.current, next.state.current, notificationId ?? undefined);
+    if (error && __DEV__) console.warn('[location] Crossing history could not sync:', error.message);
   }
 }
-
-// ─── Public API ───────────────────────────────────────────────────────────────
-
-/**
- * Request foreground + background location permissions.
- * Call this during onboarding before startTracking().
- */
-export async function requestPermissions(): Promise<boolean> {
-  const { status: fgStatus } = await ExpoLocation.requestForegroundPermissionsAsync();
-  if (fgStatus !== 'granted') return false;
-  const { status: bgStatus } = await ExpoLocation.requestBackgroundPermissionsAsync();
-  return bgStatus === 'granted';
+function enqueue(location: Location.LocationObject) {
+  work = work.then(() => processPosition(location)).catch(error => {
+    if (__DEV__) console.warn('[location] Update failed:', error.message);
+  });
+  return work;
 }
-
-/**
- * Start background location monitoring.
- * Seeds the current state immediately, then watches for position changes.
- */
+if (Platform.OS !== 'web' && !TaskManager.isTaskDefined(TASK)) TaskManager.defineTask<{ locations: Location.LocationObject[] }>(TASK, async ({ data, error }) => {
+  if (error || !data) return;
+  for (const location of data.locations) await enqueue(location);
+});
+export async function requestPermissions() {
+  const fg = await Location.requestForegroundPermissionsAsync();
+  if (fg.status !== 'granted') return false;
+  if (Platform.OS === 'web') return false;
+  const bg = await Location.requestBackgroundPermissionsAsync();
+  return bg.status === 'granted';
+}
 export async function startTracking(): Promise<void> {
-  if (_subscription) return; // already tracking
-
-  useLocationStore.getState().setTracking(true);
-
-  // Seed current state immediately before watch begins
-  try {
-    const loc = await ExpoLocation.getCurrentPositionAsync({
-      accuracy: ExpoLocation.Accuracy.Balanced,
+  if (starting) return starting;
+  const generation = trackingGeneration;
+  starting = (async () => {
+    if (Platform.OS === 'web') throw new Error('Automatic crossing alerts require the iOS or Android app.');
+    if (!await TaskManager.isAvailableAsync()) throw new Error('Background tracking requires a development or installed build.');
+    if (!(await Location.getBackgroundPermissionsAsync()).granted) throw new Error('Enable Always / background location access in Settings.');
+    if (!await Location.hasStartedLocationUpdatesAsync(TASK)) await Location.startLocationUpdatesAsync(TASK, {
+      accuracy: Location.Accuracy.High, distanceInterval: 75, timeInterval: 10000,
+      pausesUpdatesAutomatically: false, showsBackgroundLocationIndicator: true,
+      foregroundService: { notificationTitle: 'Crossline is watching for state crossings', notificationBody: 'Turn off background tracking in Profile to stop.', killServiceOnDestroy: true },
     });
-    await _handleLocationUpdate(loc.coords.latitude, loc.coords.longitude);
-  } catch {
-    // Non-fatal — watch will populate state on first update
-  }
-
-  // ── SWAP POINT: replace the block below with BackgroundGeolocation.onLocation ──
-  _subscription = await ExpoLocation.watchPositionAsync(
-    {
-      accuracy: ExpoLocation.Accuracy.Balanced,
-      distanceInterval: 100, // metres — minimises battery drain on highway
-      timeInterval: 30_000,  // 30 s fallback poll
-    },
-    location => {
-      _handleLocationUpdate(location.coords.latitude, location.coords.longitude);
-    }
-  );
-  // ── END SWAP POINT ────────────────────────────────────────────────────────
+    if (!subscription) subscription = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, distanceInterval: 75, timeInterval: 10000 }, enqueue);
+    if (generation !== trackingGeneration) { subscription?.remove(); subscription = null; if (await Location.hasStartedLocationUpdatesAsync(TASK)) await Location.stopLocationUpdatesAsync(TASK); return; }
+    useLocationStore.setState({ isTracking: true, trackingError: null });
+    void Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }).then(enqueue).catch(() => {});
+  })().catch(async error => {
+    subscription?.remove(); subscription = null;
+    useLocationStore.setState({ isTracking: false, trackingError: error.message });
+    if (Platform.OS !== 'web' && await Location.hasStartedLocationUpdatesAsync(TASK).catch(() => false)) await Location.stopLocationUpdatesAsync(TASK);
+    throw error;
+  }).finally(() => { starting = null; });
+  return starting;
 }
-
-/**
- * Stop background location monitoring and clean up.
- */
-export function stopTracking(): void {
-  _subscription?.remove();
-  _subscription = null;
+export async function stopTracking() {
+  trackingGeneration++;
+  subscription?.remove(); subscription = null;
+  if (Platform.OS !== 'web' && await Location.hasStartedLocationUpdatesAsync(TASK).catch(() => false)) await Location.stopLocationUpdatesAsync(TASK);
   useLocationStore.getState().setTracking(false);
 }
-
-/**
- * Returns the most recently detected two-letter state code, or null if unknown.
- */
-export function getCurrentState(): string | null {
-  return useLocationStore.getState().currentState;
+export function _devSimulateCrossing(toState: string) {
+  if (__DEV__) { useLocationStore.getState().setCurrentState(toState); void sendCrossingAlert(toState, 'unknown'); }
 }
-
-/**
- * Register a callback that fires whenever a state crossing is detected.
- * Returns an unsubscribe function.
- */
-export function onStateCrossing(callback: StateCrossingCallback): () => void {
-  _crossingListeners.push(callback);
-  return () => {
-    _crossingListeners = _crossingListeners.filter(cb => cb !== callback);
-  };
-}
-
-/**
- * Manually trigger a state crossing — dev simulator only.
- * Never call this in production code.
- */
-export function _devSimulateCrossing(toState: string): void {
-  if (!__DEV__) return;
-  const store = useLocationStore.getState();
-  const prev = store.currentState;
-  store.recordCrossing(prev, toState);
-  _crossingListeners.forEach(cb => cb(toState, prev));
-}
+export function getCurrentState() { return useLocationStore.getState().currentState; }

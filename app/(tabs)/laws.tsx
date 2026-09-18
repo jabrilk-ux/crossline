@@ -1,3 +1,4 @@
+import type { CarryRule } from '../../services/carryRules';
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable,
@@ -10,7 +11,7 @@ import { useUserStore } from '../../store/userStore';
 import { STATES } from '../../constants/states';
 import {
   getLawsForState,
-  getCarryStatusForUser,
+  getCarryGuidanceForUser,
   type StateLaw,
   type LawCategory,
 } from '../../services/laws';
@@ -119,10 +120,10 @@ function CarryStatusBanner({
   const permitLabel = permitType ?? 'Your permit';
 
   const summaries: Record<CarryStatus, string> = {
-    allowed:    `${permitLabel} is honored in ${stateName}. Carry is permitted.`,
-    restricted: `${permitLabel} is honored but ${stateName} has specific restrictions.`,
-    prohibited: `${permitLabel} is not recognized in ${stateName}.`,
-    unknown:    `Carry status for ${stateName} is pending verification.`,
+    allowed:    `Reviewed guidance matches your saved profile in ${stateName}. Review all conditions and official sources.`,
+    restricted: `Reviewed restrictions apply to your saved profile in ${stateName}.`,
+    prohibited: `Reviewed guidance indicates a restriction for your saved profile in ${stateName}.`,
+    unknown:    `Unable to determine your carry status in ${stateName}. Your profile may be incomplete, or reviewed rules may be unavailable.`,
   };
 
   return (
@@ -212,6 +213,8 @@ export default function LawsScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [laws, setLaws] = useState<StateLaw[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [rules, setRules] = useState<CarryRule[]>([]);
   const [carryStatus, setCarryStatus] = useState<CarryStatus>('unknown');
 
   // Re-seed from params when deep-linked (e.g. notification tap)
@@ -220,18 +223,16 @@ export default function LawsScreen() {
     if (params.category) setSelectedCategory(params.category as LawCategory);
   }, [params.state, params.category]);
 
-  const loadLaws = useCallback(async () => {
-    setLoading(true);
-    const [data, status] = await Promise.all([
-      getLawsForState(selectedState, [selectedCategory]),
-      getCarryStatusForUser(selectedState, permits, firearmsProfile),
-    ]);
-    setLaws(data);
-    setCarryStatus(status);
-    setLoading(false);
-  }, [selectedState, selectedCategory, permits, firearmsProfile]);
-
-  useEffect(() => { loadLaws(); }, [loadLaws]);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setLoading(true); setError(''); setRules([]); setCarryStatus('unknown');
+    Promise.all([getLawsForState(selectedState, [selectedCategory]), getCarryGuidanceForUser(selectedState, permits, firearmsProfile)])
+      .then(([data,status]) => { if(active) { setLaws(data); setCarryStatus(status.status); setRules(status.rules); } })
+      .catch(() => { if(active) { setLaws([]); setError('Could not load laws. Check your connection and tap to retry.'); } })
+      .finally(() => { if(active) setLoading(false); });
+    return () => { active=false; };
+  }, [selectedState, selectedCategory, permits, firearmsProfile, retry]);
 
   const stateName = STATES.find(s => s.code === selectedState)?.name ?? selectedState;
   const primaryPermit = permits.find(p => p.stateCode === selectedState);
@@ -272,11 +273,16 @@ export default function LawsScreen() {
 
       {/* Law detail cards */}
       <ScrollView contentContainerStyle={ls.scroll} showsVerticalScrollIndicator={false}>
+        {!loading && rules.map((rule, i) => <View key={i} style={{ marginBottom: 16, padding: 14, backgroundColor: colors.steel, borderRadius: 10 }}>
+          <Text style={{ color: colors.white, marginBottom: 8 }}>{rule.explanation}</Text>
+          <Text style={{ color: colors.silver }}>Scope: {rule.firearm_type} · {rule.carry_purpose} · {rule.permitless ? 'permitless rule' : `${rule.permit_state} ${rule.permit_type} permit`}. Effective {rule.effective_date} through {rule.expires_on}.</Text>
+          <TouchableOpacity onPress={() => { void Linking.openURL(rule.source_url).catch(() => {}); }}><Text style={{ color: colors.sky, marginTop: 8 }}>Review rule source →</Text></TouchableOpacity>
+        </View>)}
         {loading ? (
           <View style={ls.pending}>
             <Text style={ls.pendingText}>Loading...</Text>
           </View>
-        ) : categoryLaws.length === 0 ? (
+        ) : error ? (<TouchableOpacity onPress={() => setRetry(n => n+1)}><Text style={ls.pendingText}>{error}</Text></TouchableOpacity>) : categoryLaws.length === 0 ? (
           <View style={ls.pending}>
             <Text style={ls.pendingText}>
               Law data for this category is pending verification. Check back soon.

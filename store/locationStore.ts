@@ -13,6 +13,7 @@ interface LocationState {
   previousState: string | null;
   crossingHistory: CrossingEvent[];
   isTracking: boolean;
+  trackingError: string | null;
 
   // Actions
   setCurrentState: (state: string | null) => void;
@@ -28,6 +29,7 @@ export const useLocationStore = create<LocationState>((set) => ({
   previousState: null,
   crossingHistory: [],
   isTracking: false,
+  trackingError: null,
 
   setCurrentState: (state) => set({ currentState: state }),
 

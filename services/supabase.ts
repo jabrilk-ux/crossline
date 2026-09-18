@@ -78,6 +78,7 @@ export async function getSession() {
 // ─── User profile helpers ─────────────────────────────────────────────────────
 
 export async function upsertUserProfile(profile: Omit<DBUser, 'created_at'>) {
+  if (profile.mag_capacity !== null && (!Number.isInteger(profile.mag_capacity) || profile.mag_capacity <= 0)) throw new Error('Magazine capacity must be a positive whole number.');
   return supabase.from('users').upsert(profile).select().single();
 }
 
@@ -88,6 +89,7 @@ export async function getUserProfile(userId: string) {
 // ─── Permit helpers ───────────────────────────────────────────────────────────
 
 export async function insertPermit(permit: Omit<DBPermit, 'id' | 'created_at'>) {
+  if (permit.expiry_date && (!/^\d{4}-\d{2}-\d{2}$/.test(permit.expiry_date) || new Date(permit.expiry_date).toISOString().slice(0, 10) !== permit.expiry_date)) throw new Error('Use a valid expiry date in YYYY-MM-DD format.');
   return supabase.from('permits').insert(permit).select().single();
 }
 

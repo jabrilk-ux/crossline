@@ -1,5 +1,5 @@
 import * as turf from '@turf/turf';
-import stateBorders from '../data/state-borders.geojson';
+import stateBorders from '../data/state-borders.json';
 import { getStateName } from '../constants/states';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

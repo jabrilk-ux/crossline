@@ -1,3 +1,4 @@
+import { FREE_BETA } from '../constants/features';
 import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { useUserStore } from '../store/userStore';
@@ -12,8 +13,8 @@ export function useSubscription() {
 
   return {
     tier,
-    isPro: tier === 'pro' || tier === 'pro_plus',
-    isProPlus: tier === 'pro_plus',
+    isPro: FREE_BETA || tier === 'pro' || tier === 'pro_plus',
+    isProPlus: !FREE_BETA && tier === 'pro_plus',
     openPaywall,
   };
 }

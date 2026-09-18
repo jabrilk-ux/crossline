@@ -1,3 +1,6 @@
+import PrivacyControls from '../../components/PrivacyControls';
+import { clearLocalAccount } from '../../services/account';
+import { savePreferences } from '../../services/preferences';
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Switch,
@@ -47,10 +50,12 @@ function AddPermitSheet({
   async function handleAdd() {
     if (!stateCode) { Alert.alert('Select a state first'); return; }
     setSaving(true);
-    await onAdd(stateCode, permitType, expiryDate);
-    setSaving(false);
-    setStateCode(''); setStateQuery(''); setExpiryDate('');
-    onClose();
+    try {
+      await onAdd(stateCode, permitType, expiryDate);
+      setStateCode(''); setStateQuery(''); setExpiryDate('');
+      onClose();
+    } catch (e) { Alert.alert('Could not save permit', e instanceof Error ? e.message : 'Check your entries and retry.'); }
+    finally { setSaving(false); }
   }
 
   return (
@@ -146,9 +151,9 @@ function EditFirearmModal({
 
   async function handleSave() {
     setSaving(true);
-    await onSave(draft);
-    setSaving(false);
-    onClose();
+    try { await onSave(draft); onClose(); }
+    catch (e) { Alert.alert('Could not save', e instanceof Error ? e.message : 'Please retry.'); }
+    finally { setSaving(false); }
   }
 
   return (
@@ -272,7 +277,7 @@ export default function ProfileScreen() {
       permit_type: permitType,
       expiry_date: expiryDate || null,
     });
-    if (error) { Alert.alert('Error', error.message); return; }
+    if (error) throw error;
     if (data) {
       addPermit({ id: data.id, stateCode: data.state_code, permitType: data.permit_type, expiryDate: data.expiry_date });
     }
@@ -286,7 +291,8 @@ export default function ProfileScreen() {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Remove', style: 'destructive', onPress: async () => {
-          await deletePermit(permit.id);
+          const { error } = await deletePermit(permit.id);
+          if (error) { Alert.alert("Could not remove permit", error.message); return; }
           removePermit(permit.id);
         }},
       ]
@@ -297,7 +303,7 @@ export default function ProfileScreen() {
 
   const handleSaveFirearm = useCallback(async (p: FirearmsProfile) => {
     if (!userId) return;
-    await upsertUserProfile({
+    const { error } = await upsertUserProfile({
       id: userId,
       home_state: homeState,
       carry_purpose: p.carryPurpose,
@@ -305,6 +311,7 @@ export default function ProfileScreen() {
       mag_capacity: p.magCapacity,
       has_suppressor: p.hasSuppressor,
     });
+    if (error) throw error;
     setProfile(homeState ?? '', p);
   }, [userId, homeState, setProfile]);
 
@@ -322,12 +329,17 @@ export default function ProfileScreen() {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign Out', style: 'destructive', onPress: async () => {
-        stopTracking();
-        await signOut();
+        try {
+        if (userId) await savePreferences(userId, { tracking: false });
+        await stopTracking();
+        const { error } = await signOut();
+        if (error) throw error;
+        if (userId) await clearLocalAccount(userId);
         reset();
         locationStore.setCurrentState(null);
         locationStore.setTracking(false);
         router.replace('/(auth)/welcome');
+        } catch (e) { Alert.alert('Could not sign out', e instanceof Error ? e.message : 'Please retry.'); }
       }},
     ]);
   }
@@ -391,57 +403,9 @@ export default function ProfileScreen() {
           <Text style={styles.editButtonText}>Edit Firearm Profile</Text>
         </TouchableOpacity>
 
-        {/* Notifications */}
-        <SectionHeader title="Notifications" />
-        <View style={styles.toggleCard}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>Background tracking</Text>
-              <Text style={styles.toggleSub}>Required for state-crossing detection</Text>
-            </View>
-            <Switch value={trackingEnabled} onValueChange={handleTrackingToggle} trackColor={{ true: colors.sky, false: colors.border }} thumbColor={colors.white} />
-          </View>
-          <View style={[styles.toggleRow, { borderBottomWidth: 0 }]}>
-            <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>Crossing alerts</Text>
-              <Text style={styles.toggleSub}>Notify when you enter a new state</Text>
-            </View>
-            <Switch value={alertsEnabled} onValueChange={setAlertsEnabled} trackColor={{ true: colors.sky, false: colors.border }} thumbColor={colors.white} />
-          </View>
-        </View>
-
-        {/* Subscription */}
-        <SectionHeader title="Subscription" />
-        <View style={styles.subCard}>
-          <View style={styles.subCardLeft}>
-            <View style={styles.subTierBadge}>
-              <Text style={styles.subTierText}>
-                {subscriptionTier === 'free' ? 'Free' :
-                 subscriptionTier === 'pro' ? 'Pro' : 'Pro+'}
-              </Text>
-            </View>
-            <View>
-              <Text style={styles.subTitle}>
-                {subscriptionTier === 'free' ? 'Crossline Free' :
-                 subscriptionTier === 'pro' ? 'Crossline Pro' : 'Crossline Pro+'}
-              </Text>
-              {subscriptionTier !== 'free' && renewalDate(customerInfo) ? (
-                <Text style={styles.subRenewal}>Renews {renewalDate(customerInfo)}</Text>
-              ) : subscriptionTier === 'free' ? (
-                <Text style={styles.subRenewal}>3 crossing alerts/month</Text>
-              ) : null}
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[styles.subManageBtn, subscriptionTier === 'free' && styles.subUpgradeBtn]}
-            onPress={openPaywall}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.subManageText, subscriptionTier === 'free' && styles.subUpgradeText]}>
-              {subscriptionTier === 'free' ? 'Upgrade' : 'Manage'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <PrivacyControls />
+        <SectionHeader title="Beta access" />
+        <Text style={styles.emptyText}>Free beta · Purchases disabled</Text>
 
         {/* Account */}
         <SectionHeader title="Account" />
