@@ -25,3 +25,9 @@
 ## Automated evidence
 
 The app/ingestion typechecks, core tests, browser fixture flow, live read-only API checks, transaction-rolled-back database tests, and iOS/Android/web JavaScript exports are recorded in the PR. JavaScript export is not a signed native build or physical-device test.
+
+## Legal review follow-up (September 18, 2026)
+
+See [review findings](legal/REVIEW.md), [privacy working draft](legal/PRIVACY_POLICY_DRAFT.md) and [beta terms working draft](legal/BETA_TERMS_DRAFT.md). These drafts are not effective user contracts. Complete operator/contact/audience/retention details, review, publish stable public URLs, and implement versioned terms acceptance before treating them as binding.
+
+For Google Play, provide an external account-deletion request page as well as the in-app flow. Publish the monitored request channel, verify account control, revoke sessions/delete the account using the supported admin workflow, record completion without retaining unnecessary personal data, and confirm cascaded deletion. Never request a user's password by email. This external process is not operational until a real channel and operator are assigned.

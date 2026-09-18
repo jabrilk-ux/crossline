@@ -142,7 +142,9 @@ async function scrapeOne(
       logger.info(`[verify] ${stateCode}/${category}: confidence boosted ${result.confidence.toFixed(2)} → ${adjustedConfidence.toFixed(2)}`);
     }
 
-    const finalFlagged = adjustedConfidence < 0.7;
+    // Confidence is a triage signal, never legal approval. Every changed
+    // summary must go through a new independent review.
+    const finalFlagged = true;
 
     // 5. Upsert to Supabase (or skip if dry-run)
     await upsertLaw({
@@ -251,7 +253,7 @@ async function run(options: ScrapeOptions): Promise<void> {
   }
 
   if (flagged.length > 0) {
-    logger.warn('Flagged for review (confidence < 0.7):');
+    logger.warn('Drafts requiring independent review:');
     flagged.forEach(r => logger.warn(`  ⚑ ${r.stateCode}/${r.category} (confidence=${r.confidence.toFixed(2)})`));
   }
 

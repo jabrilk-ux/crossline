@@ -1,5 +1,4 @@
 import { statesAlongGeometry } from './routeGeometry';
-import { detectStateFromCoords } from './geofence';
 import { getLawsForState, getCarryStatusForUser, type StateLaw } from './laws';
 import { getStateName } from '../constants/states';
 import type { Permit, FirearmsProfile } from '../store/userStore';
@@ -24,7 +23,6 @@ export interface TripState {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const OPENCAGE_API_KEY = process.env.EXPO_PUBLIC_OPENCAGE_API_KEY ?? '';
-const SAMPLE_POINTS = 100;
 
 // ─── Geocoding ────────────────────────────────────────────────────────────────
 
@@ -75,9 +73,8 @@ export async function geocodeAddress(query: string): Promise<GeocodedLocation[]>
 
 /**
  * getStatesAlongRoute()
- * Draws a straight line between origin and destination, samples SAMPLE_POINTS
- * evenly spaced points along it, and returns the ordered, deduplicated list
- * of state codes the route passes through.
+ * Intersects the configured provider’s full driving geometry with state boundaries.
+ * Preserves re-entry and reports gaps in the bundled boundary coverage.
  */
 export const drivingRoutesConfigured = Boolean(process.env.EXPO_PUBLIC_ROUTING_URL && OPENCAGE_API_KEY);
 export async function getStatesAlongRoute(
