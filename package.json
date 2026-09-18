@@ -8,13 +8,15 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "scrape": "ts-node --project tsconfig.scraper.json scripts/scraper/index.ts",
-    "scrape:dry": "ts-node --project tsconfig.scraper.json scripts/scraper/index.ts --dry-run"
+    "scrape:dry": "ts-node --project tsconfig.scraper.json scripts/scraper/index.ts --dry-run",
+    "check:backend": "node scripts/check-backend.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "^1.8.3",
-    "@supabase/supabase-js": "^2.103.0",
+    "@supabase/supabase-js": "2.103.0",
     "@turf/turf": "^6.5.0",
     "expo": "~54.0.33",
     "expo-font": "^55.0.6",
@@ -32,6 +34,7 @@
     "react-native-maps": "1.20.1",
     "react-native-purchases": "^7.28.1",
     "react-native-reanimated": "~3.16.0",
+    "react-native-url-polyfill": "2.0.0",
     "react-native-web": "^0.21.0",
     "zustand": "^4.5.7"
   },

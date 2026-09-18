@@ -21,6 +21,7 @@ import {
   type CustomerInfo,
 } from '../services/revenuecat';
 import { useUserStore } from '../store/userStore';
+import { startAuthAutoRefresh } from '../services/supabase';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -28,6 +29,7 @@ SplashScreen.preventAutoHideAsync();
 initializePurchases();
 
 export default function RootLayout() {
+  useEffect(startAuthAutoRefresh, []);
   const router = useRouter();
   const {
     isOnboarded, permits,

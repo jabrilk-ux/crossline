@@ -34,7 +34,8 @@ Requirements:
 - A Supabase project
 
 ```bash
-npm install
+npm ci
+cp .env.local.example .env.local
 npm start
 ```
 
@@ -51,7 +52,7 @@ npm run web
 The mobile app uses:
 
 - `EXPO_PUBLIC_SUPABASE_URL`
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (legacy `EXPO_PUBLIC_SUPABASE_ANON_KEY` is also supported)
 - `EXPO_PUBLIC_REVENUECAT_IOS_KEY`
 - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY`
 
@@ -79,3 +80,15 @@ npm run scrape:dry
 ```
 
 Scraped summaries below the confidence threshold are flagged for human review, and human verification dates are not overwritten by automated updates.
+
+## Connected Supabase backend
+
+Project: `ewfrwvymnxdsyxqafklh` (`jabrilk-ux's Project`). The example environment contains this project's public URL and publishable key, which are intended for client use. `.env.local` is ignored by Git. Never add a service-role or secret key to an `EXPO_PUBLIC_` variable.
+
+The migrations in `supabase/migrations` provision `users`, `permits`, `state_laws`, and `crossing_events`. Row-level security limits profiles, permits, and crossing events to their owners. Authenticated users can read law data; only the server-side ingestion pipeline can write it. The connection migration adds explicit Data API grants and the unique state/category index required by the scraper.
+
+These migrations have been applied to the connected project. For a new project, apply all migration files in filename order. Do not reapply the initial migrations to an existing database. Native sessions use AsyncStorage and refresh while the app is active.
+
+The database initially contains no law records. Law ingestion still requires server-side Supabase credentials and `ANTHROPIC_API_KEY`; these are not included in the mobile environment.
+
+Run `npm run check:backend` to verify the public key, Auth endpoint, and anonymous access restrictions without creating users or changing data.

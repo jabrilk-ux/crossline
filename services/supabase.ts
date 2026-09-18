@@ -1,9 +1,40 @@
-import { createClient } from '@supabase/supabase-js';
+import 'react-native-url-polyfill/auto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState, Platform } from 'react-native';
+import { createClient, processLock } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.local.');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    ...(Platform.OS !== 'web' ? { storage: AsyncStorage } : {}),
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    lock: processLock,
+  },
+});
+
+// Mount once in the root layout; remove the listener on unmount / Fast Refresh.
+export function startAuthAutoRefresh() {
+  if (Platform.OS === 'web') return () => {};
+  const refresh = (state: string | null) => {
+    if (state === 'active') supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  };
+  refresh(AppState.currentState);
+  const listener = AppState.addEventListener('change', refresh);
+  return () => {
+    listener.remove();
+    supabase.auth.stopAutoRefresh();
+  };
+}
 
 // ─── Types matching the DB schema ────────────────────────────────────────────
 
