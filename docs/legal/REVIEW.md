@@ -40,3 +40,7 @@ Operator business address (name confirmed as Crossline); monitored support/priva
 ## Owner clarification
 
 The operator name is Crossline. The selected beta scope is the 14 Atlantic coastal states listed in BETA_RELEASE.md. Google email and Android signing are the preferred setup path; account/domain availability is still unconfirmed. The geographic decision does not approve the source catalog or publish legal guidance.
+
+## Official-source research path
+
+[East Coast source register](EAST_COAST_SOURCES.md) now identifies official starting points for all 14 states and a structured review process. It separates source checks from substantive legal interpretation and records unresolved questions. No law rows were approved or published by this research pass. Qualified legal review remains a recommendation for consequential interpretations, not a blanket legal requirement asserted for operating an informational app.
