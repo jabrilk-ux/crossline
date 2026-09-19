@@ -1,14 +1,8 @@
 // ─── State statute source URLs ────────────────────────────────────────────────
 //
-// Priority states for the Session 8 seed run:
-//   VA, MD, PA (already seeded manually — scraper will overwrite with verified data)
-//   TX, FL, CA, NY, GA, AZ, OH, NV, TN
-//
-// URL notes:
-//   - Use official legislature sites where stable direct URLs exist
-//   - justia.com used as stable fallback for states with unwieldy official URLs
-//   - Omit a category key entirely if the state has no law for that category
-//   - Sources are fetched live; verify URLs are still valid before running
+// Research candidates only: mappings are incomplete and require source review.
+// A missing category means unconfigured/unknown, not absence of applicable law.
+// Scraping never constitutes verification or approval for publication.
 
 export type LawCategory =
   | 'carry'
@@ -63,10 +57,8 @@ export const STATE_SOURCES: StateSourceConfig[] = [
     stateName: 'Pennsylvania',
     sources: {
       carry:               'https://www.legis.state.pa.us/cfdocs/legis/LI/consCheck.cfm?txtType=HTM&ttl=18&div=0&chpt=61&sctn=6&subsctn=0',
-      prohibited_locations:'https://www.legis.state.pa.us/cfdocs/legis/LI/consCheck.cfm?txtType=HTM&ttl=18&div=0&chpt=61&sctn=12&subsctn=0',
-      transport:           'https://law.justia.com/codes/pennsylvania/title-75-vehicles/chapter-61-equipment-standards/section-6106.1/',
-      duty_to_inform:      'https://law.justia.com/codes/pennsylvania/title-18-crimes-and-offenses/chapter-61-firearms/section-6118/',
-      storage:             'https://law.justia.com/codes/pennsylvania/title-18-crimes-and-offenses/chapter-61-firearms/section-6110.2/',
+      // Chapter includes definitions, licensing, vehicle rules and exceptions. Review together.
+      transport:           'https://www.legis.state.pa.us/WU01/LI/LI/CT/HTM/18/00.061..HTM',
     },
   },
 

@@ -1,0 +1,222 @@
+[
+  {
+    "code": "ME",
+    "name": "Maine",
+    "researchDate": "2026-09-18",
+    "summary": "Maine’s State Police page describes recognition of another state’s resident permit when that state recognizes Maine resident permits. This is a recognition question, separate from eligibility for permitless carry.",
+    "questions": "Resident vs nonresident permit; reciprocal recognition; separate permitless eligibility and location exceptions.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "State Police reciprocity",
+        "url": "https://www.maine.gov/dps/msp/licenses-permits/concealed-carry-maine/reciprocity"
+      }
+    ]
+  },
+  {
+    "code": "NH",
+    "name": "New Hampshire",
+    "researchDate": "2026-09-18",
+    "summary": "RSA Chapter 159 addresses pistol and revolver definitions, possession restrictions and licensing. Section 159:6 distinguishes availability of a license from unlicensed carry by a person who is not otherwise prohibited. The page includes provisions with different effective dates.",
+    "questions": "Eligibility, licensing versus carry, vehicle rules, prohibited places and federal overlays.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "Official RSA Chapter 159",
+        "url": "https://gc.nh.gov/rsa/html/xii/159/159-mrg.htm"
+      }
+    ]
+  },
+  {
+    "code": "MA",
+    "name": "Massachusetts",
+    "researchDate": "2026-09-18",
+    "summary": "Massachusetts publishes a research guide linking firearms statutes, licensing resources and related materials. Use it to locate the current rules for the particular firearm and travel purpose; this entry does not establish an exemption.",
+    "questions": "Current licensing and nonresident provisions, definitions, transport exemptions, restrictions and effective changes.",
+    "retrieval": "discovered",
+    "sources": [
+      {
+        "title": "Official firearms-law research guide",
+        "url": "https://www.mass.gov/info-details/massachusetts-law-about-guns-and-other-firearms"
+      }
+    ]
+  },
+  {
+    "code": "RI",
+    "name": "Rhode Island",
+    "researchDate": "2026-09-18",
+    "summary": "Rhode Island’s Attorney General explains carry permitting and identifies exceptions in its 2022 guidance. A through-travel exception and permission to carry at a destination are different questions; later changes still need checking.",
+    "questions": "Distinguish licensing authorities, carry from through-travel exceptions, and later amendments to older guidance.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "Attorney General permit guidance",
+        "url": "https://riag.ri.gov/bruen_guidance"
+      },
+      {
+        "title": "permit office",
+        "url": "https://riag.ri.gov/about-our-office/divisions-and-units/bureau-criminal-identification-bci/pistol-permits"
+      }
+    ]
+  },
+  {
+    "code": "CT",
+    "name": "Connecticut",
+    "researchDate": "2026-09-18",
+    "summary": "Connecticut’s DESPP page explains state pistol permits and the application process. A permit application, a permit issued by another state and a Connecticut permit are different documents; this reference does not determine recognition or eligibility.",
+    "questions": "Nonresident licensing, permit scope, current equipment/location restrictions and transport law.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "DESPP state pistol permit",
+        "url": "https://portal.ct.gov/despp/division-of-state-police/special-licensing-and-firearms/state-pistol-permit"
+      }
+    ]
+  },
+  {
+    "code": "NY",
+    "name": "New York",
+    "researchDate": "2026-09-18",
+    "summary": "New York’s official FAQ covers concealed-carry licensing and related restrictions. Application eligibility is a different question from recognition of an existing permit. Specific locations and current court orders need separate review.",
+    "questions": "Nonresident application versus permit recognition; NYC distinctions; sensitive places and current litigation/orders.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "State concealed-carry FAQ",
+        "url": "https://gunsafety.ny.gov/frequently-asked-questions-new-concealed-carry-law"
+      }
+    ]
+  },
+  {
+    "code": "NJ",
+    "name": "New Jersey",
+    "researchDate": "2026-09-18",
+    "summary": "New Jersey provides out-of-state application instructions and separate transportation guidance. These resources address different activities. We have not completed a current-law transport or carry analysis.",
+    "questions": "Obtain current statutes and orders; the transport guidance is older. Examine authorized purposes, deviations, equipment restrictions and carry/transport distinction.",
+    "retrieval": "discovered",
+    "sources": [
+      {
+        "title": "NJSP out-of-state carry application instructions",
+        "url": "https://www.nj.gov/njsp/firearms/pdf/Concealed_Carry_Permit_Instructions_for_Out_of_State_Residents.pdf"
+      },
+      {
+        "title": "AG transport guidance",
+        "url": "https://www.nj.gov/lps/dcj/agguide/transporting-firearms_guide.pdf"
+      }
+    ]
+  },
+  {
+    "code": "DE",
+    "name": "Delaware",
+    "researchDate": "2026-09-18",
+    "summary": "Delaware’s Department of Justice provides concealed-carry application and recognition resources. Check the current recognition information and its conditions for your permit and residence before drawing a conclusion.",
+    "questions": "Current recognition list, residency, temporary recognition, locations and equipment restrictions.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "DOJ concealed-carry office",
+        "url": "https://attorneygeneral.delaware.gov/criminal/concealed-carry-deadly-weapons-ccdw/"
+      }
+    ]
+  },
+  {
+    "code": "MD",
+    "name": "Maryland",
+    "researchDate": "2026-09-18",
+    "summary": "Maryland State Police explains the Wear & Carry application process and warns that submitting an application does not authorize carrying. The permit page must be read alongside statutory exceptions and location restrictions.",
+    "questions": "Read Criminal Law 4-203 exceptions alongside permit guidance; compare location rules with current orders and definitions.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "MDSP Wear & Carry",
+        "url": "https://mdsp.maryland.gov/firearms-permits-professional-licenses/wear-carry-permit"
+      },
+      {
+        "title": "prohibited places",
+        "url": "https://mdsp.maryland.gov/firearms-permits-professional-licenses/prohibited-places-carry-firearm"
+      }
+    ]
+  },
+  {
+    "code": "VA",
+    "name": "Virginia",
+    "researchDate": "2026-09-18",
+    "summary": "Virginia State Police maintains recognition guidance and links to selected firearms statutes. Full-page retrieval was unavailable during this research pass, so no recognition conditions have been verified here.",
+    "questions": "Exact recognition prerequisites, identification, age, disqualification, local/location restrictions and transport exceptions. Recognition page discovered via official search result; direct retrieval failed during this pass, so full-page verification remains open.",
+    "retrieval": "discovered",
+    "sources": [
+      {
+        "title": "VSP recognition",
+        "url": "https://vsp.virginia.gov/services/firearms/reciprocity-and-recognition/"
+      },
+      {
+        "title": "selected statutes",
+        "url": "https://vsp.virginia.gov/services/firearms/selected-state-laws-pertaining-to-firearms/"
+      }
+    ]
+  },
+  {
+    "code": "NC",
+    "name": "North Carolina",
+    "researchDate": "2026-09-18",
+    "summary": "North Carolina G.S. 14-415.24 addresses recognition of a valid concealed-handgun permit or license issued by another state. Recognition alone does not establish that carrying at a particular place or in particular circumstances is lawful.",
+    "questions": "Recognition does not resolve prohibited places, disclosure requirements or other carry conditions.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "Official G.S. 14-415.24",
+        "url": "https://www.ncleg.gov/EnactedLegislation/Statutes/HTML/BySection/Chapter_14/GS_14-415.24.html"
+      },
+      {
+        "title": "DOJ reciprocity",
+        "url": "https://ncdoj.gov/law-enforcement-training/law-enforcement-liason/concealed-weapon-reciprocity/"
+      }
+    ]
+  },
+  {
+    "code": "SC",
+    "name": "South Carolina",
+    "researchDate": "2026-09-18",
+    "summary": "SLED’s guidance explains South Carolina’s 2024 constitutional-carry legislation. Permitless eligibility, benefits of a permit and prohibited places remain separate questions, and later changes need checking.",
+    "questions": "Separate permitless eligibility from permit benefits, location restrictions and current amendments; guidance originated in 2024.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "SLED constitutional-carry guidance",
+        "url": "https://www.sled.sc.gov/constitutional-carry-guidance"
+      }
+    ]
+  },
+  {
+    "code": "GA",
+    "name": "Georgia",
+    "researchDate": "2026-09-18",
+    "summary": "Georgia’s Department of Public Safety publishes firearm-permit reciprocity information. Recognition in a destination state depends on that state’s requirements; the page is not a general authorization for a specific trip.",
+    "questions": "Lawful-weapons-carrier definition, nonresident eligibility, location restrictions and current statutory exceptions.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "DPS reciprocity",
+        "url": "https://dps.georgia.gov/ask-us/georgias-firearm-permit-reciprocity"
+      },
+      {
+        "title": "state licensing guide",
+        "url": "https://georgia.gov/apply-firearms-license"
+      }
+    ]
+  },
+  {
+    "code": "FL",
+    "name": "Florida",
+    "researchDate": "2026-09-18",
+    "summary": "Florida’s licensing agency provides reciprocity information and references eligibility conditions. Permit recognition, permitless eligibility and restrictions on where or how to carry require separate review.",
+    "questions": "Separate recognition, permitless eligibility, open/concealed carry and prohibited places; check current statutes/court orders rather than the scraper's 2023 links.",
+    "retrieval": "retrieved",
+    "sources": [
+      {
+        "title": "FDACS reciprocity",
+        "url": "https://www.fdacs.gov/Consumer-Resources/Concealed-Weapon-License/Concealed-Weapon-License-Reciprocity"
+      }
+    ]
+  }
+]

@@ -10,13 +10,13 @@ export default function WelcomeScreen() {
       <View style={styles.content}>
         <View style={styles.top}>
           <Text style={styles.wordmark}>CROSSLINE</Text>
-          <Text style={styles.tagline}>Know the law the moment{'\n'}you cross state lines.</Text>
+          <Text style={styles.tagline}>State-law references{'\n'}for the road ahead.</Text>
         </View>
 
         <View style={styles.bottom}>
           <TouchableOpacity
             style={styles.ctaButton}
-            onPress={() => router.push('/(auth)/onboarding')}
+            onPress={() => router.push('/(auth)/login?mode=signup')}
             activeOpacity={0.85}
           >
             <Text style={styles.ctaText}>Get Started</Text>
