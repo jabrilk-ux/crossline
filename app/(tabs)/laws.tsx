@@ -1,3 +1,4 @@
+import LegalReferenceCard from '../../components/LegalReferenceCard';
 import type { CarryRule } from '../../services/carryRules';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -273,6 +274,7 @@ export default function LawsScreen() {
 
       {/* Law detail cards */}
       <ScrollView contentContainerStyle={ls.scroll} showsVerticalScrollIndicator={false}>
+        <LegalReferenceCard key={selectedState} stateCode={selectedState} />
         {!loading && rules.map((rule, i) => <View key={i} style={{ marginBottom: 16, padding: 14, backgroundColor: colors.steel, borderRadius: 10 }}>
           <Text style={{ color: colors.white, marginBottom: 8 }}>{rule.explanation}</Text>
           <Text style={{ color: colors.silver }}>Scope: {rule.firearm_type} · {rule.carry_purpose} · {rule.permitless ? 'permitless rule' : `${rule.permit_state} ${rule.permit_type} permit`}. Effective {rule.effective_date} through {rule.expires_on}.</Text>
@@ -285,7 +287,7 @@ export default function LawsScreen() {
         ) : error ? (<TouchableOpacity onPress={() => setRetry(n => n+1)}><Text style={ls.pendingText}>{error}</Text></TouchableOpacity>) : categoryLaws.length === 0 ? (
           <View style={ls.pending}>
             <Text style={ls.pendingText}>
-              Law data for this category is pending verification. Check back soon.
+              No reviewed summary is available for this category. The state references above are research notes and do not establish your carry status.
             </Text>
           </View>
         ) : (

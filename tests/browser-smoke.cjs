@@ -27,6 +27,16 @@ const assert = require('node:assert/strict');
     });
     await page.goto(process.env.CROSSLINE_TEST_URL ?? 'http://localhost:8081');
     await page.getByText('Get Started',{exact:true}).click();
+    await page.getByRole('button',{name:'Official state references',exact:true}).click();
+    await page.getByText('East Coast reference library',{exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:/^Reference: /}).count(),14);
+    for (const state of ['Maine','New Hampshire','Massachusetts','Rhode Island','Connecticut','New York','New Jersey','Delaware','Maryland','Virginia','North Carolina','South Carolina','Georgia','Florida']) {
+      await page.getByRole('button',{name:`Reference: ${state}`,exact:true}).click();
+      await page.getByText(`${state} · official references`,{exact:true}).waitFor();
+      await page.getByText(/Not independently reviewed/).waitFor();
+    }
+    await page.screenshot({path:'/tmp/crossline-reference-library.png',fullPage:true});
+    await page.getByRole('button',{name:'Back',exact:true}).click();
     await page.getByRole('button',{name:'Create account',exact:true}).click();
     await page.getByText('Enter a valid email address.',{exact:true}).waitFor();
     await page.getByRole('textbox',{name:'Email address'}).fill('beta-fixture@example.com');
@@ -56,6 +66,7 @@ const assert = require('node:assert/strict');
     await page.getByRole('textbox',{name:'States in travel order'}).fill('VA, MD, PA');
     await page.getByRole('button',{name:'Prepare trip brief',exact:true}).click();
     await page.getByText('1. Virginia',{exact:true}).waitFor();
+    await page.getByText('Outside the 14-state beta reference coverage. Verify this jurisdiction separately.',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Save brief on this device',exact:true}).click();
     await page.getByText('Trip saved on this device.',{exact:true}).waitFor();
     await page.getByRole('button',{name:/Open saved brief/}).click();
@@ -66,6 +77,6 @@ const assert = require('node:assert/strict');
     await page.getByText('Privacy & beta information',{exact:true}).waitFor();
     await page.screenshot({path:'/tmp/crossline-beta-privacy.png',fullPage:true});
     assert.deepEqual(errors,[]);
-    console.log('PASS: signup validation and confirmation, recovery request, login, onboarding, account restoration, manual trip, saved brief, free beta, privacy navigation; no page exceptions. API responses were mocked.');
+    console.log('PASS: all 14 public reference cards, out-of-coverage trip warning, signup validation and confirmation, recovery request, login, onboarding, account restoration, manual trip, saved brief, free beta, privacy navigation; no page exceptions. API responses were mocked.');
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exit(1);});

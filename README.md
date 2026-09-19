@@ -63,3 +63,7 @@ Every new scrape invalidates prior review until a human reviewer checks the cont
 - `node tests/browser-smoke.cjs`: run against a local Expo web server on port 8081 (or `CROSSLINE_TEST_URL`). Uses mocked Supabase responses and sends no emails or account mutations. Covers signup validation, confirmation messaging, recovery request, login, onboarding, restart restoration, manual trips, saved briefs, and privacy navigation. It does not prove live SMTP delivery, native callbacks, or physical background execution.
 
 Compatible dependency security fixes were applied. Some advisories remain in the Expo 54/build-tool dependency tree and the server-only Anthropic SDK; review the current `npm audit` report before a public release. No forced major SDK migration was applied.
+
+### East Coast references
+
+The public `/references` screen provides dated research notes, official sources and open questions for the 14 Atlantic coastal states. It is accessible from sign-in and Profile; law and trip screens expose the same references. Bundled notes remain separate from independently reviewed backend guidance and cannot set carry status. After 90 days their summaries are hidden pending refresh. Source verification limitations and out-of-scope jurisdictions are explicit. See `docs/legal/EAST_COAST_SOURCES.md` for the research register.

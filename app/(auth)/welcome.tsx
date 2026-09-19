@@ -10,7 +10,7 @@ export default function WelcomeScreen() {
       <View style={styles.content}>
         <View style={styles.top}>
           <Text style={styles.wordmark}>CROSSLINE</Text>
-          <Text style={styles.tagline}>Know the law the moment{'\n'}you cross state lines.</Text>
+          <Text style={styles.tagline}>State-law references{'\n'}for the road ahead.</Text>
         </View>
 
         <View style={styles.bottom}>

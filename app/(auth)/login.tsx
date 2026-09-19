@@ -43,6 +43,7 @@ export default function Login() {
       <Button title={busy ? 'Please wait…' : mode === 'signup' ? 'Create account' : mode === 'reset' ? 'Send reset email' : 'Sign in'} disabled={busy} onPress={submit} />
       <Button title={mode === 'login' ? 'Create an account' : 'Back to sign in'} disabled={busy} onPress={() => { setMode(mode === 'login' ? 'signup' : 'login'); setMessage(''); }} />
       {mode === 'login' && <Button title="Forgot password?" disabled={busy} onPress={() => { setMode('reset'); setMessage(''); }} />}
+      <Button title="Official state references" onPress={() => router.push('/references')} />
       <Button title="Privacy and beta information" onPress={() => router.push('/privacy')} />
     </ScrollView>
   </KeyboardAvoidingView>;

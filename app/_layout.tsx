@@ -87,6 +87,7 @@ export default function RootLayout() {
     <Stack.Screen name="auth-callback" />
     <Stack.Screen name="reset-password" />
     <Stack.Screen name="privacy" />
+    <Stack.Screen name="references" />
     <Stack.Protected guard={!userId || !isOnboarded}><Stack.Screen name="(auth)" /></Stack.Protected>
     <Stack.Protected guard={Boolean(userId && isOnboarded)}><Stack.Screen name="(tabs)" /><Stack.Screen name="paywall" /></Stack.Protected>
   </Stack>;
