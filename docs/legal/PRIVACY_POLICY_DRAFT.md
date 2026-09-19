@@ -4,7 +4,7 @@
 
 ## Who operates Crossline
 
-Crossline is operated by [LEGAL PERSON OR COMPANY, BUSINESS CONTACT ADDRESS]. Contact [MONITORED PRIVACY EMAIL] about privacy, access, corrections or deletion. Effective date: [DATE]. This policy covers the Crossline free beta and [PUBLIC WEBSITE, IF ANY].
+Crossline is operated by Crossline. Business contact address: [ADDRESS]. Contact [MONITORED PRIVACY EMAIL] about privacy, access, corrections or deletion. Effective date: [DATE]. This policy covers the Crossline free beta and [PUBLIC WEBSITE, IF ANY].
 
 ## Information and purposes
 
@@ -13,7 +13,7 @@ Crossline is operated by [LEGAL PERSON OR COMPANY, BUSINESS CONTACT ADDRESS]. Co
 - **Location:** With device permission, precise location is used on the device to detect state crossings, including in the background when enabled. The app does not send a continuous GPS track to Crossline's database. The current and candidate states are stored locally to confirm crossings. Separately, map and directions providers may receive geographic queries as described below.
 - **Optional history:** Saving crossing history is off by default. When enabled, state codes and crossing times are stored with the account. Turning saving off stops new saved entries; clearing history deletes previous entries from the active database.
 - **Trips and device storage:** Saved briefs, dates, session tokens and preferences are stored locally. App-local storage is not an encrypted document vault. Device/cloud backup behavior depends on operating-system settings. Saved briefs can be cleared in Trip. Signing out clears local Crossline trip briefs and preferences on that device.
-- **Network and support:** Providers may process IP addresses, request metadata and security logs. If you contact support, [OPERATOR] processes the information you send to answer the request. Do not send permit documents, passwords or precise travel history unnecessarily.
+- **Network and support:** Providers may process IP addresses, request metadata and security logs. If you contact support, Crossline processes the information you send to answer the request. Do not send permit documents, passwords or precise travel history unnecessarily.
 
 ## Providers and disclosure
 

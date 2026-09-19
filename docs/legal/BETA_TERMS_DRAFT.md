@@ -4,9 +4,13 @@
 
 ## Operator and access
 
-These terms describe the invited Crossline beta offered by [LEGAL PERSON OR COMPANY], reachable at [SUPPORT EMAIL / BUSINESS CONTACT ADDRESS]. Effective date: [DATE]. Eligible users: [AGE, GEOGRAPHY AND INVITATION CONDITIONS]. Creating an account does not establish firearm eligibility or a right to possess, transport or carry a firearm.
+These terms describe the invited Crossline beta offered by Crossline, reachable at [SUPPORT EMAIL / BUSINESS CONTACT ADDRESS]. Effective date: [DATE]. Eligible users: [AGE AND INVITATION CONDITIONS]. Creating an account does not establish firearm eligibility or a right to possess, transport or carry a firearm.
 
 The beta is free. Purchases and paid upgrades are disabled. Any future paid offering will require separate pricing disclosure and user authorization; beta participation does not authorize a charge or subscription.
+
+## Planned beta coverage
+
+The initial legal-content review scope is the 14 Atlantic coastal states: Maine, New Hampshire, Massachusetts, Rhode Island, Connecticut, New York, New Jersey, Delaware, Maryland, Virginia, North Carolina, South Carolina, Georgia and Florida. This is planned coverage, not a claim that guidance for these states has been reviewed or published. It does not restrict a traveler’s home state. Pennsylvania, Vermont and Washington, DC are outside this initial content scope; routes through them must still show unavailable guidance rather than implying no restrictions.
 
 ## Reference information and its limits
 
@@ -20,11 +24,11 @@ Travel plans and alerts may be incomplete, delayed or wrong. Background operatio
 
 Provide accurate account information, maintain credential security and update saved permit information. Do not use Crossline to facilitate unlawful conduct, interfere with the service, access another person's records or misrepresent the service as governmental or professional authorization.
 
-You retain rights in information you submit. You permit [OPERATOR] to process it as reasonably necessary to provide the functions you request, consistent with the finalized Privacy Policy. This provision does not grant a right to sell sensitive profile or travel information.
+You retain rights in information you submit. You permit Crossline to process it as reasonably necessary to provide the functions you request, consistent with the finalized Privacy Policy. This provision does not grant a right to sell sensitive profile or travel information.
 
 ## Changes, suspension and ending participation
 
-The beta may change or end. Where reasonably practicable, [OPERATOR] will give notice of material changes or termination. Access may be suspended to address misuse, security incidents or legal requirements. Users may stop participation and request account deletion through Profile or [EXTERNAL DELETION URL]. Explain retained records in the Privacy Policy.
+The beta may change or end. Where reasonably practicable, Crossline will give notice of material changes or termination. Access may be suspended to address misuse, security incidents or legal requirements. Users may stop participation and request account deletion through Profile or [EXTERNAL DELETION URL]. Explain retained records in the Privacy Policy.
 
 ## Responsibility and applicable law
 

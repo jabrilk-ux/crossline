@@ -35,4 +35,8 @@ Reviewed repository notice, authentication/privacy flows, ingestion configuratio
 
 ## Completion inputs
 
-Operator legal name/address; monitored support/privacy email and domain; intended ages and beta states; provider account access; actual retention schedules; qualified reviewer for the selected legal coverage; Apple/Google/Expo account and device access. Do not paste private keys into chat. Configure secrets through the relevant provider's secure settings.
+Operator business address (name confirmed as Crossline); monitored support/privacy email and domain; intended ages; provider account access; actual retention schedules; qualified reviewer for the selected legal coverage; Apple/Google/Expo account and device access. Do not paste private keys into chat. Configure secrets through the relevant provider's secure settings.
+
+## Owner clarification
+
+The operator name is Crossline. The selected beta scope is the 14 Atlantic coastal states listed in BETA_RELEASE.md. Google email and Android signing are the preferred setup path; account/domain availability is still unconfirmed. The geographic decision does not approve the source catalog or publish legal guidance.
