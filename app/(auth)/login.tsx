@@ -4,6 +4,7 @@ import { View, Text, TextInput, Button, ScrollView, KeyboardAvoidingView, Platfo
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../services/supabase';
 import { colors } from '../../constants/theme';
+import { GoogleSignInButton } from '../../components/GoogleSignInButton';
 export default function Login() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
@@ -47,7 +48,7 @@ export default function Login() {
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 28, paddingTop: 80, gap: 22 }}>
       <Text style={{ color: colors.sky, fontSize: 24 }}>CROSSLINE · BETA</Text>
       <Text style={{ color: colors.white, fontSize: 28 }}>{mode === 'signup' ? 'Create your account' : mode === 'reset' ? 'Reset your password' : 'Welcome back'}</Text>
-      {mode !== 'reset' && <><Button title="Continue with Google" disabled={busy} onPress={googleSignIn} /><Text style={{ color: colors.silver }}>Or continue with email</Text></>}
+      {mode !== 'reset' && <><GoogleSignInButton disabled={busy} onPress={googleSignIn} /><Text style={{ color: colors.silver }}>Or continue with email</Text></>}
       <TextInput accessibilityLabel="Email address" placeholder="Email address" placeholderTextColor={colors.silver} style={{ padding: 16, backgroundColor: colors.steel, color: colors.white, borderRadius: 10 }} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" value={email} onChangeText={setEmail} />
       {mode !== 'reset' && <TextInput accessibilityLabel="Password" placeholder={mode === 'signup' ? 'Password (12+ characters)' : 'Password'} placeholderTextColor={colors.silver} style={{ padding: 16, backgroundColor: colors.steel, color: colors.white, borderRadius: 10 }} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChangeText={setPassword} />}
       {message ? <Text accessibilityLiveRegion="polite" style={{ color: colors.silver }}>{message}</Text> : null}

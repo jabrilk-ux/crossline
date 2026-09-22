@@ -52,7 +52,7 @@ const assert = require('node:assert/strict');
     await page.screenshot({path:'/tmp/crossline-reference-library.png',fullPage:true});
     await page.getByRole('button',{name:'Back',exact:true}).click();
     if (googleMode) {
-      await page.getByRole('button',{name:'Continue with Google',exact:true}).click();
+      await page.getByRole('button',{name:'Sign in with Google',exact:true}).click();
     } else {
     await page.getByRole('button',{name:'Create account',exact:true}).click();
     await page.getByText('Enter a valid email address.',{exact:true}).waitFor();
