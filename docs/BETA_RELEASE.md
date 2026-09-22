@@ -20,7 +20,7 @@
 - Leave history saving off and confirm no crossing rows are created. Enable it, create crossings, reload, clear history, and verify it stays cleared. Clear saved trips and sign out; local trip files must be removed.
 - Test missing, stale, flagged and rescraped rules. All must remain unavailable. Test permit issuer, residency, expiry, firearm type, magazine and suppressor differences with reviewer-approved fixtures.
 - Test a driving route through a narrow state and a state re-entry when a provider is configured. Compare with the provider's actual geometry. No-route and provider errors must not produce a fabricated brief.
-- Delete a disposable beta account using its password. Verify Auth, profile, permits, history and device-local data are removed, and refresh sessions are revoked. Test expired credentials and a failed deletion response.
+- Delete a disposable beta account by typing DELETE while signed in. Test both Google and email accounts. Verify Auth, profile, permits, history and device-local data are removed, and refresh sessions are revoked. Test expired sessions and a failed deletion response.
 
 ## Automated evidence
 
@@ -39,3 +39,15 @@ Operator name: **Crossline**. Planned legal-content scope: **Maine, New Hampshir
 Google can provide a business mailbox through Google Workspace and authenticated SMTP for Supabase, subject to account policies and sending limits. Confirm the owned domain, monitored sender/support address and Workspace administrator access first. Store SMTP credentials only in Supabase’s secure Auth settings. Verify signup and recovery delivery before inviting users. [Google setup guidance](https://support.google.com/a/answer/176600).
 
 For Android, use a Google Play developer account and Play App Signing, with an upload key managed through Expo/EAS or secured locally. Google’s app-signing certificate is distinct from the upload certificate; use the appropriate signing identity when restricting the production Maps key. [Play App Signing](https://support.google.com/googleplay/android-developer/answer/9842756). For iOS distribution, Apple Developer credentials are still required; Google cannot replace them. [Expo credentials](https://docs.expo.dev/app-signing/app-credentials/). None of these provider accounts or credentials has been provisioned by this documentation update.
+
+## Google sign-in implementation
+
+Google OAuth is enabled on the attached project (confirmed through its public Auth settings on September 22, 2026). The app now offers Continue with Google for sign-in and sign-up, uses PKCE, exchanges callbacks once across native browser/screen handlers, and sends new users through existing onboarding. Mobile uses an external authentication session; web redirects in the same tab. Email sign-in remains available. Google users do not need Crossline confirmation/reset emails; email users still need working SMTP.
+
+Google Cloud authorized redirect URI: `https://ewfrwvymnxdsyxqafklh.supabase.co/auth/v1/callback`.
+
+Supabase Authentication → URL Configuration must allow `crossline://auth-callback` for installed builds. Web testing also needs the exact current origin plus `/auth-callback` (for this local test: `http://localhost:8081/auth-callback`). Add the corresponding `?recovery=true` email-recovery redirects. The app cannot set this server allowlist; its contents have not been verified in this implementation. Do not add arbitrary wildcard production origins.
+
+Account deletion now uses the authenticated session and typed DELETE confirmation for both account types. The deployed endpoint independently validates the bearer token and deletes only that user. No client-supplied target user ID or provider metadata authorizes deletion. Password re-entry was removed; no new server-side recent-authentication requirement is claimed.
+
+Browser fixtures exercise Google authorization parameters, PKCE exchange, onboarding, session restoration and passwordless deletion without touching real accounts. Native cancellation/success/unexpected callbacks have unit coverage. A real Google account round trip and installed iOS/Android deep links still require manual verification; Expo Go is not the installed `crossline` build. No real account was deleted during implementation.

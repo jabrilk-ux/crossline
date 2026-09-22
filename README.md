@@ -67,3 +67,5 @@ Compatible dependency security fixes were applied. Some advisories remain in the
 ### East Coast references
 
 The public `/references` screen provides dated research notes, official sources and open questions for the 14 Atlantic coastal states. It is accessible from sign-in and Profile; law and trip screens expose the same references. Bundled notes remain separate from independently reviewed backend guidance and cannot set carry status. After 90 days their summaries are hidden pending refresh. Source verification limitations and out-of-scope jurisdictions are explicit. See `docs/legal/EAST_COAST_SOURCES.md` for the research register.
+
+Google sign-in is available alongside email/password. The app uses PKCE and a provider-neutral DELETE confirmation for account deletion. Configure exact Supabase mobile/web redirect URLs as described in `docs/BETA_RELEASE.md`; Google credentials stay in Supabase, never in the client.

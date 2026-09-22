@@ -17,7 +17,7 @@ export default function PrivacyControls() {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
   const [message, setMessage] = useState('');
   useEffect(() => { let active = true; if (id) void getPreferences(id).then(p => { if (active) { setPrefs(p); setReady(true); } }).catch(() => setMessage('Could not load preferences. Reopen Profile to retry.')); return () => { active = false; }; }, [id]);
   async function change(key: keyof Preferences, value: boolean) {
@@ -36,16 +36,17 @@ export default function PrivacyControls() {
     finally { setBusy(false); }
   }
   async function removeAccount() {
-    if (!id) return;
+    if (!id || confirmation !== 'DELETE') return;
     setBusy(true); setMessage('');
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user?.email) throw userError ?? new Error('Sign in again before deleting your account.');
-      const { error: authError } = await supabase.auth.signInWithPassword({ email: userData.user.email, password });
-      if (authError) throw authError;
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token || sessionData.session?.user.id !== id) throw new Error('Sign in again before deleting your account.');
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (userError || userData.user?.id !== id) throw new Error('Sign in again before deleting your account.');
       await savePreferences(id, { tracking: false });
       await stopTracking();
-      const { error } = await supabase.functions.invoke('delete-account');
+      const { error } = await supabase.functions.invoke('delete-account', { headers: { Authorization: `Bearer ${token}` } });
       if (error) throw error;
       await clearLocalAccount(id);
       await supabase.auth.signOut({ scope: 'local' });
@@ -60,8 +61,8 @@ export default function PrivacyControls() {
     <Button title="Clear saved crossing history" disabled={busy} onPress={() => Alert.alert('Clear history?', 'This deletes all saved crossings from your account.', [{ text: 'Cancel' }, { text: 'Clear history', style: 'destructive', onPress: () => { setBusy(true); void (async () => { if (id) { setPrefs(await savePreferences(id, { saveHistory: false })); } await stopTracking(); await clearHistory(); setMessage('History cleared. Saving history is now off.'); if (prefs.tracking) await startTracking(); })().catch(e => setMessage(e.message)).finally(() => setBusy(false)); } }])} />
     <Button title="Official state references" onPress={() => router.push('/references')} />
       <Button title="Privacy and beta information" onPress={() => router.push('/privacy')} />
-    <Button title="Delete my account" color={colors.danger} disabled={busy} onPress={() => setDeleting(!deleting)} />
-    {deleting && <><Text style={{ color: colors.silver }}>This permanently deletes your account, profile, permits and crossing history. Enter your password to confirm.</Text><TextInput accessibilityLabel="Password to confirm account deletion" placeholder="Account password" placeholderTextColor={colors.silver} secureTextEntry value={password} onChangeText={setPassword} style={{ color: colors.white, padding: 14 }} /><Button title="Permanently delete account" color={colors.danger} disabled={busy || !password} onPress={removeAccount} /></>}
+    <Button title="Delete my account" color={colors.danger} disabled={busy} onPress={() => { setDeleting(!deleting); setConfirmation(''); }} />
+    {deleting && <><Text style={{ color: colors.silver }}>This permanently deletes your account, profile, permits and crossing history. Type DELETE to confirm. This deletes your Crossline account, not your Google account.</Text><TextInput accessibilityLabel="Type DELETE to confirm account deletion" placeholder="DELETE" placeholderTextColor={colors.silver} autoCapitalize="characters" autoCorrect={false} value={confirmation} onChangeText={setConfirmation} style={{ color: colors.white, padding: 14 }} /><Button title="Permanently delete account" color={colors.danger} disabled={busy || confirmation !== 'DELETE'} onPress={removeAccount} /></>}
     {trackingError ? <Text style={{ color: colors.warning }}>{trackingError}</Text> : null}
     {message ? <Text accessibilityLiveRegion="polite" style={{ color: colors.silver }}>{message}</Text> : null}
   </View>;

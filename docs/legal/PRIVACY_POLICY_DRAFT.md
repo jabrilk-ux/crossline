@@ -15,6 +15,10 @@ Crossline is operated by Crossline. Business contact address: [ADDRESS]. Contact
 - **Trips and device storage:** Saved briefs, dates, session tokens and preferences are stored locally. App-local storage is not an encrypted document vault. Device/cloud backup behavior depends on operating-system settings. Saved briefs can be cleared in Trip. Signing out clears local Crossline trip briefs and preferences on that device.
 - **Network and support:** Providers may process IP addresses, request metadata and security logs. If you contact support, Crossline processes the information you send to answer the request. Do not send permit documents, passwords or precise travel history unnecessarily.
 
+## Google authentication
+
+If you choose Google sign-in, Google shares basic identity information (including identifier, email and profile information) with Supabase Auth to establish your Crossline session. Crossline does not request Gmail, Drive or contacts access. Google also processes sign-in under its own policies. Account deletion removes the Crossline account, not the Google account.
+
 ## Reference links
 
 The app includes dated research notes and links to official state resources. Notes do not determine personal carry status. Opening an external source contacts that website, which can receive network information under its own privacy practices. The notes can be read locally; external links require a connection.

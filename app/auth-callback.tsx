@@ -7,7 +7,7 @@ import { colors } from '../constants/theme';
 export default function AuthCallback() {
   const url = Linking.useURL();
   const router = useRouter();
-  const [message, setMessage] = useState('Confirming your email…');
+  const [message, setMessage] = useState('Completing sign-in…');
   useEffect(() => {
     if (!url) return;
     let active = true;

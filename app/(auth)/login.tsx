@@ -1,3 +1,4 @@
+import { authRedirectUrl, signInWithGoogle } from '../../services/googleAuth';
 import { useState } from 'react';
 import { View, Text, TextInput, Button, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -11,17 +12,26 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  async function googleSignIn() {
+    setBusy(true); setMessage('');
+    try {
+      const result = await signInWithGoogle();
+      if (result === 'signed-in') router.replace('/');
+      if (result === 'cancelled') setMessage('Google sign-in cancelled. You can try again.');
+    } catch (e) { setMessage(e instanceof Error ? e.message : 'Google sign-in failed. Please try again.'); }
+    finally { setBusy(false); }
+  }
   async function submit() {
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setMessage('Enter a valid email address.'); return; }
     if (mode !== 'reset' && (mode === 'signup' ? password.length < 12 : !password)) { setMessage(mode === 'signup' ? 'Use a password with at least 12 characters.' : 'Enter your password.'); return; }
     setBusy(true); setMessage('');
     try {
       if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: 'crossline://auth-callback?recovery=true' });
+        const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: authRedirectUrl(true) });
         if (error) throw error;
         setMessage('If an account exists, a reset email is on its way. Open it on this device.');
       } else if (mode === 'signup') {
-        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: 'crossline://auth-callback' } });
+        const { data, error } = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: authRedirectUrl() } });
         if (error) throw error;
         if (data.session) router.replace('/');
         else setMessage('Check your email to confirm your account. Then return here and sign in.');
@@ -37,6 +47,7 @@ export default function Login() {
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 28, paddingTop: 80, gap: 22 }}>
       <Text style={{ color: colors.sky, fontSize: 24 }}>CROSSLINE · BETA</Text>
       <Text style={{ color: colors.white, fontSize: 28 }}>{mode === 'signup' ? 'Create your account' : mode === 'reset' ? 'Reset your password' : 'Welcome back'}</Text>
+      {mode !== 'reset' && <><Button title="Continue with Google" disabled={busy} onPress={googleSignIn} /><Text style={{ color: colors.silver }}>Or continue with email</Text></>}
       <TextInput accessibilityLabel="Email address" placeholder="Email address" placeholderTextColor={colors.silver} style={{ padding: 16, backgroundColor: colors.steel, color: colors.white, borderRadius: 10 }} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" value={email} onChangeText={setEmail} />
       {mode !== 'reset' && <TextInput accessibilityLabel="Password" placeholder={mode === 'signup' ? 'Password (12+ characters)' : 'Password'} placeholderTextColor={colors.silver} style={{ padding: 16, backgroundColor: colors.steel, color: colors.white, borderRadius: 10 }} secureTextEntry autoCapitalize="none" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChangeText={setPassword} />}
       {message ? <Text accessibilityLiveRegion="polite" style={{ color: colors.silver }}>{message}</Text> : null}

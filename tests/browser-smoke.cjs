@@ -6,16 +6,30 @@ const assert = require('node:assert/strict');
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    const googleMode = process.env.CROSSLINE_TEST_GOOGLE === '1';
+    let deletionCalls = 0;
     const id='ce6f4551-643d-408b-9fc5-2f8f9bab0001';
-    const user={id,aud:'authenticated',role:'authenticated',email:'beta-fixture@example.com',app_metadata:{provider:'email',providers:['email']},user_metadata:{},created_at:new Date().toISOString()};
+    const user={id,aud:'authenticated',role:'authenticated',email:'beta-fixture@example.com',app_metadata:{provider:googleMode?'google':'email',providers:[googleMode?'google':'email']},user_metadata:{},created_at:new Date().toISOString()};
     const token=[{alg:'HS256',typ:'JWT'},{sub:id,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+3600},'signature'].map(x=>Buffer.from(typeof x==='string'?x:JSON.stringify(x)).toString('base64url')).join('.');
     const session={access_token:token,refresh_token:'test-refresh',expires_in:3600,token_type:'bearer',user};
     let profile=null,permits=[];
     await page.route('https://*.supabase.co/**',async route=>{
       const request=route.request(),url=new URL(request.url());
       let response={};
-      if(url.pathname.endsWith('/signup'))response={user,session:null};
-      else if(url.pathname.endsWith('/token'))response=session;
+      if(url.pathname.endsWith('/authorize')) {
+        assert.equal(url.searchParams.get('provider'),'google');
+        assert.equal(url.searchParams.get('code_challenge_method'),'s256');
+        assert.ok(url.searchParams.get('code_challenge'));
+        const callback=url.searchParams.get('redirect_to');
+        assert.equal(callback,new URL('/auth-callback',process.env.CROSSLINE_TEST_URL ?? 'http://localhost:8081').href);
+        return route.fulfill({status:302,headers:{location:callback+'?code=synthetic-google-code'},body:''});
+      }
+      if(url.pathname.endsWith('/functions/v1/delete-account')) { deletionCalls++; assert.ok(request.headers().authorization?.startsWith('Bearer ')); if (deletionCalls === 1) return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'Synthetic deletion failure'})}); response={deleted:true}; }
+      else if(url.pathname.endsWith('/signup'))response={user,session:null};
+      else if(url.pathname.endsWith('/token')) {
+        if (googleMode) { assert.equal(url.searchParams.get('grant_type'),'pkce'); assert.ok(request.postDataJSON().code_verifier); }
+        response=session;
+      }
       else if(url.pathname.endsWith('/user'))response=user;
       else if(url.pathname.endsWith('/recover')||url.pathname.endsWith('/logout'))response={};
       else if(url.pathname.endsWith('/rpc/save_onboarding')) { const data=request.postDataJSON(); profile={...data.profile,id,created_at:new Date().toISOString()}; permits=data.permits.map((p,i)=>({...p,id:`permit-${i}`,user_id:id})); response=null; }
@@ -37,6 +51,9 @@ const assert = require('node:assert/strict');
     }
     await page.screenshot({path:'/tmp/crossline-reference-library.png',fullPage:true});
     await page.getByRole('button',{name:'Back',exact:true}).click();
+    if (googleMode) {
+      await page.getByRole('button',{name:'Continue with Google',exact:true}).click();
+    } else {
     await page.getByRole('button',{name:'Create account',exact:true}).click();
     await page.getByText('Enter a valid email address.',{exact:true}).waitFor();
     await page.getByRole('textbox',{name:'Email address'}).fill('beta-fixture@example.com');
@@ -49,6 +66,7 @@ const assert = require('node:assert/strict');
     await page.getByText('If an account exists, a reset email is on its way. Open it on this device.',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Back to sign in',exact:true}).click();
     await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    }
     await page.getByText('Where is your home state?',{exact:true}).waitFor();
     await page.getByPlaceholder('Search states...').fill('Virginia');
     await page.getByText('Virginia',{exact:true}).click();
@@ -76,6 +94,21 @@ const assert = require('node:assert/strict');
     await page.getByRole('button',{name:'Privacy and beta information',exact:true}).click();
     await page.getByText('Privacy & beta information',{exact:true}).waitFor();
     await page.screenshot({path:'/tmp/crossline-beta-privacy.png',fullPage:true});
+    if (googleMode) {
+      await page.getByRole('button',{name:'Back',exact:true}).click();
+      await page.getByRole('button',{name:'Delete my account',exact:true}).click();
+      assert.equal(await page.getByRole('textbox',{name:'Password to confirm account deletion'}).count(),0);
+      assert.equal(await page.getByRole('button',{name:'Permanently delete account',exact:true}).isDisabled(),true);
+      assert.equal(deletionCalls,0);
+      await page.getByRole('textbox',{name:'Type DELETE to confirm account deletion'}).fill('DELETE');
+      await page.getByRole('button',{name:'Permanently delete account',exact:true}).click();
+      await page.getByText(/Edge Function returned a non-2xx status code/).waitFor();
+      assert.equal(deletionCalls,1);
+      await page.getByRole('button',{name:'Permanently delete account',exact:true}).click();
+      await page.getByText('Get Started',{exact:true}).waitFor();
+      assert.equal(deletionCalls,2);
+      console.log('PASS: Google PKCE redirect, callback, onboarding, session restoration and passwordless account deletion (mocked).');
+    }
     assert.deepEqual(errors,[]);
     console.log('PASS: all 14 public reference cards, out-of-coverage trip warning, signup validation and confirmation, recovery request, login, onboarding, account restoration, manual trip, saved brief, free beta, privacy navigation; no page exceptions. API responses were mocked.');
   } finally { await browser.close(); }
