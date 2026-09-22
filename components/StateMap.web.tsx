@@ -23,11 +23,6 @@ const labels: Record<CarryStatus, string> = { allowed: 'Reviewed guidance', rest
 const point = ([lng, lat]: number[]) => [lng > 0 ? lng - 360 : lng, -lat / 0.75];
 const shapes = (borders as GeoJSON.FeatureCollection).features.flatMap(feature => {
   const code = String(feature.properties?.STUSPS);
-  useEffect(() => {
-    if (!position || !following.current || location.stale) return;
-    const [x,y] = point([position.longitude,position.latitude]);
-    setView(previous => { const size = Math.min(previous[2], 6); return [x-size/2,y-size/2,size,size]; });
-  }, [position, location.stale]);
   const state = STATES.find(s => s.code === code);
   const geometry = feature.geometry;
   if (!state || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return [];
