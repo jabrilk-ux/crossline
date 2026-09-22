@@ -36,5 +36,5 @@ export async function clearLocalAccount(userId: string) {
   const owned = keys.filter(k => k === `crossline:preferences:${userId}` || k === `crossline:crossing:${userId}` || k.startsWith(`crossline:trip:${userId}`));
   await AsyncStorage.multiRemove(owned);
   useUserStore.getState().reset();
-  useLocationStore.setState({ currentState: null, previousState: null, crossingHistory: [], isTracking: false });
+  useLocationStore.setState({ browserLocation: null, currentState: null, previousState: null, crossingHistory: [], isTracking: false });
 }

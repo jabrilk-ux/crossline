@@ -38,7 +38,7 @@ export default function RootLayout() {
       await stopTracking().catch(() => {});
       if (!active || version !== generation) return;
       useUserStore.getState().reset();
-      useLocationStore.setState({ currentState: null, previousState: null, crossingHistory: [], isTracking: false });
+      useLocationStore.setState({ browserLocation: null, currentState: null, previousState: null, crossingHistory: [], isTracking: false });
       useUserStore.getState().setUserId(id);
       try {
         if (id) await loadAccount(id);
@@ -64,7 +64,7 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError]);
   useEffect(() => {
     let active = true;
-    if (ready && userId && isOnboarded) void getPreferences(userId).then(async p => {
+    if (Platform.OS !== 'web' && ready && userId && isOnboarded) void getPreferences(userId).then(async p => {
       if (active && p.tracking) await startTracking();
     }).catch(() => useLocationStore.getState().setTracking(false));
     return () => { active = false; };

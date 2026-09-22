@@ -74,11 +74,13 @@ function HeroStateCard({
   carryStatus,
   lastCrossedAt,
   isHomeState,
+  detectedAt,
 }: {
   stateCode: string | null;
   carryStatus: CarryStatus;
   lastCrossedAt: string | null;
   isHomeState: boolean;
+  detectedAt: number | null;
 }) {
   const router = useRouter();
 
@@ -97,10 +99,11 @@ function HeroStateCard({
       style={({ pressed }) => [styles.heroCard, pressed && styles.heroCardPressed]}
       onPress={() => router.push(`/(tabs)/laws?state=${stateCode}`)}
     >
-      <Text style={styles.heroLabel}>{isHomeState ? 'Home state' : 'Current State'}</Text>
+      <Text style={styles.heroLabel}>{isHomeState ? 'Home state' : detectedAt ? 'Last detected state' : 'Current State'}</Text>
       <Text style={styles.heroCode}>{stateCode}</Text>
       <Text style={styles.heroName}>{getStateName(stateCode)}</Text>
       {isHomeState && <Text style={styles.heroSub}>Your saved home state. Your current location has not been confirmed.</Text>}
+      {detectedAt && <Text style={styles.heroSub}>Detected on the map at {new Date(detectedAt).toLocaleTimeString()}. Open the map to update your location.</Text>}
       <StatusBadge status={carryStatus} />
       {lastCrossedAt && (
         <Text style={styles.heroSub}>Last crossed {timeAgo(lastCrossedAt)}</Text>
@@ -248,14 +251,16 @@ function DevCrossingSimulator() {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { currentState, isTracking, crossingHistory } = useLocationStore();
-  const { homeState, permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
+  const { currentState, isTracking, crossingHistory, browserLocation } = useLocationStore();
+  const { userId, homeState, permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
   const { openPaywall } = useSubscription();
   const [carryStatus, setCarryStatus] = useState<CarryStatus>('unknown');
   const alertLimitReached = false;
 
-  const displayState = currentState ?? homeState;
-  const isHomeState = !currentState && !!homeState;
+  const browserFix = Platform.OS === 'web' && browserLocation?.userId === userId ? browserLocation : null;
+  const detectedState = Platform.OS === 'web' ? browserFix?.stateCode ?? null : currentState;
+  const displayState = detectedState ?? homeState;
+  const isHomeState = !detectedState && !!homeState;
   const lastCrossedAt = currentState ? crossingHistory[0]?.crossedAt ?? null : null;
 
   useEffect(() => {
@@ -289,6 +294,7 @@ export default function HomeScreen() {
         <HeroStateCard
           stateCode={displayState}
           isHomeState={isHomeState}
+          detectedAt={detectedState && browserFix ? browserFix.timestamp : null}
           carryStatus={carryStatus}
           lastCrossedAt={lastCrossedAt}
         />
