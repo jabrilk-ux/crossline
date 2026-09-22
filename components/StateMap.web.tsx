@@ -8,6 +8,8 @@ import { getCarryStatusesForUser } from '../services/laws';
 import { getLegalReference } from '../services/legalReferences';
 import type { CarryStatus } from '../services/notifications';
 import borders from '../data/state-borders.json';
+import { useMapLocation } from '../services/useMapLocation';
+import { detectStateFromCoords } from '../services/geofence';
 
 type ViewBox = [number, number, number, number];
 const regions: Record<string, ViewBox> = {
@@ -21,6 +23,11 @@ const labels: Record<CarryStatus, string> = { allowed: 'Reviewed guidance', rest
 const point = ([lng, lat]: number[]) => [lng > 0 ? lng - 360 : lng, -lat / 0.75];
 const shapes = (borders as GeoJSON.FeatureCollection).features.flatMap(feature => {
   const code = String(feature.properties?.STUSPS);
+  useEffect(() => {
+    if (!position || !following.current || location.stale) return;
+    const [x,y] = point([position.longitude,position.latitude]);
+    setView(previous => { const size = Math.min(previous[2], 6); return [x-size/2,y-size/2,size,size]; });
+  }, [position, location.stale]);
   const state = STATES.find(s => s.code === code);
   const geometry = feature.geometry;
   if (!state || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return [];
@@ -34,6 +41,14 @@ const control: CSSProperties = { background: colors.steel, color: 'white', borde
 
 export default function StateMap() {
   const router = useRouter();
+  const location = useMapLocation();
+  const following = useRef(true);
+  const [follow, setFollow] = useState(true);
+  function pauseFollow() { following.current = false; setFollow(false); }
+  const position = location.position;
+  const currentCode = position ? detectStateFromCoords(position.latitude, position.longitude) : null;
+  const currentName = STATES.find(s => s.code === currentCode)?.name;
+  const locationPoint = position ? point([position.longitude, position.latitude]) : null;
   const { permits, firearmsProfile, homeState } = useUserStore();
   const [statuses, setStatuses] = useState<Record<string, CarryStatus>>({});
   const [loading, setLoading] = useState(true);
@@ -50,12 +65,18 @@ export default function StateMap() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [permits, firearmsProfile, homeState]);
+  useEffect(() => {
+    if (!position || !following.current || location.stale) return;
+    const [x,y] = point([position.longitude,position.latitude]);
+    setView(previous => { const size = Math.min(previous[2], 6); return [x-size/2,y-size/2,size,size]; });
+  }, [position, location.stale]);
   const state = STATES.find(s => s.code === selected);
   const status = statuses[selected] ?? 'unknown';
   function zoom(factor: number) {
     setView(([x,y,w,h]) => { const width = Math.max(1, Math.min(90, w * factor)); const height = h * width / w; return [x + (w-width)/2, y + (h-height)/2, width, height]; });
   }
   function choose(code: string, focus = false) {
+    if (focus) pauseFollow();
     setSelected(code);
     if (focus) {
       const shape = shapes.find(s => s.code === code);
@@ -66,7 +87,7 @@ export default function StateMap() {
     <h1 style={{ margin: '0 0 8px', fontSize: 28 }}>Explore the map</h1>
     <p style={{ color: '#b7c8dc', margin: '0 0 20px', lineHeight: 1.5 }}>Select a state to explore guidance and official sources. Drag to pan; use + and − to zoom.</p>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
-      <select aria-label="Map region" value={region} style={control} onChange={e => { setRegion(e.target.value); setView(regions[e.target.value]); }}>
+      <select aria-label="Map region" value={region} style={control} onChange={e => { pauseFollow(); setRegion(e.target.value); setView(regions[e.target.value]); }}>
         {Object.keys(regions).map(name => <option key={name}>{name}</option>)}
       </select>
       <select aria-label="Find a state" value={selected} style={{ ...control, maxWidth: '100%' }} onChange={e => choose(e.target.value, true)}>
@@ -74,8 +95,15 @@ export default function StateMap() {
       </select>
       <button style={control} aria-label="Zoom in" onClick={() => zoom(0.7)}>+</button>
       <button style={control} aria-label="Zoom out" onClick={() => zoom(1/0.7)}>−</button>
-      <button style={control} onClick={() => setView(regions[region])}>Reset view</button>
+      <button style={control} onClick={() => { pauseFollow(); setView(regions[region]); }}>Reset view</button>
     </div>
+    <div style={{ display:'flex',gap:10,flexWrap:'wrap',marginBottom:12 }}>
+      <button style={control} onClick={() => { following.current=true; setFollow(true); location.locate(); if(locationPoint) setView([locationPoint[0]-3,locationPoint[1]-3,6,6]); }}>Locate me</button>
+      {location.enabled && <button style={control} onClick={location.stop}>Stop location</button>}
+    </div>
+    <p role="status" style={{color:'#c4d3e3',lineHeight:1.5}}>
+      {location.error || (position ? `${location.stale ? 'Last known location' : 'Your location'}${currentName ? ` · ${currentName}` : ' · Outside mapped U.S. states'} · Accuracy ±${Math.round(position.accuracy)} m · Updated ${new Date(position.timestamp).toLocaleTimeString()}${follow && !location.stale ? ' · Following you' : ''}` : location.enabled ? 'Finding your location… Allow location access when your browser asks.' : 'Location is off. Choose Locate me to show your position.')}
+    </p>
     <svg aria-label="Interactive state map" role="group" viewBox={view.join(' ')}
       style={{ width: '100%', height: 'clamp(320px, 53vh, 620px)', display: 'block', background: '#10243b', borderRadius: 14, border: '1px solid #35516e', touchAction: 'none', cursor: 'grab' }}
       onPointerDown={e => {
@@ -88,6 +116,7 @@ export default function StateMap() {
         const d = drag.current; if (!d) return;
         const dx=e.clientX-d.x, dy=e.clientY-d.y;
         if (Math.hypot(dx,dy)>5) d.moved=true;
+        if (d.moved) { pauseFollow(); }
         if (d.moved) setView([d.view[0]-dx/d.scale,d.view[1]-dy/d.scale,d.view[2],d.view[3]]);
       }}
       onPointerUp={e => { const d=drag.current; drag.current=null; if(e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId); if(d && !d.moved && d.code) choose(d.code); }}
@@ -101,6 +130,10 @@ export default function StateMap() {
         onKeyDown={e => { if(e.key==='Enter'||e.key===' ') { e.preventDefault(); choose(s.code,true); } }}>
         <title>{s.name} · {labels[statuses[s.code] ?? 'unknown']}</title>
       </path>)}
+      {position && locationPoint && <g role="img" aria-label={location.stale ? 'Last known location' : 'Your location'} pointerEvents="none">
+        <ellipse cx={locationPoint[0]} cy={locationPoint[1]} rx={position.accuracy / (111320 * Math.max(0.01, Math.cos(position.latitude*Math.PI/180)))} ry={position.accuracy / (111320 * 0.75)} fill="#38bdf833" stroke="#38bdf8" vectorEffect="non-scaling-stroke" />
+        <circle cx={locationPoint[0]} cy={locationPoint[1]} r={Math.min(view[2],view[3])*0.012} fill={location.stale ? '#94a3b8' : '#38bdf8'} stroke="white" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      </g>}
     </svg>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, padding: '14px 0', fontSize: 13 }}>
       {(Object.keys(labels) as CarryStatus[]).map(key => <span key={key}><span style={{ display:'inline-block', width:10, height:10, borderRadius:5, background:key==='unknown'?'#304b67':statusColors[key], border:'1px solid #91aac2', marginRight:6 }} />{labels[key]}</span>)}
@@ -112,6 +145,6 @@ export default function StateMap() {
         <div style={{ display:'flex',flexWrap:'wrap',gap:10 }}><button style={control} onClick={() => router.push(`/(tabs)/laws?state=${state.code}`)}>View state guidance</button>
         {getLegalReference(state.code) && <button style={control} onClick={() => router.push({ pathname:'/references',params:{state:state.code} })}>Official state references</button>}</div></>}
     </section>
-    <p style={{color:'#b7c8dc',fontSize:12,lineHeight:1.5}}>State boundary explorer · No street navigation. Unknown does not mean permitted. Reference coverage is not a legal clearance.</p>
+    <p style={{color:'#b7c8dc',fontSize:12,lineHeight:1.5}}>Live location while this map is open · Coordinates stay on this device · No street navigation. Unknown does not mean permitted. Reference coverage is not a legal clearance.</p>
   </main>;
 }
