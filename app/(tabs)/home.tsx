@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, TextInput, Alert, Pressable,
+  TouchableOpacity, TextInput, Alert, Pressable, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, typography, statusColors } from '../../constants/theme';
@@ -73,10 +73,12 @@ function HeroStateCard({
   stateCode,
   carryStatus,
   lastCrossedAt,
+  isHomeState,
 }: {
   stateCode: string | null;
   carryStatus: CarryStatus;
   lastCrossedAt: string | null;
+  isHomeState: boolean;
 }) {
   const router = useRouter();
 
@@ -95,9 +97,10 @@ function HeroStateCard({
       style={({ pressed }) => [styles.heroCard, pressed && styles.heroCardPressed]}
       onPress={() => router.push(`/(tabs)/laws?state=${stateCode}`)}
     >
-      <Text style={styles.heroLabel}>Current State</Text>
+      <Text style={styles.heroLabel}>{isHomeState ? 'Home state' : 'Current State'}</Text>
       <Text style={styles.heroCode}>{stateCode}</Text>
       <Text style={styles.heroName}>{getStateName(stateCode)}</Text>
+      {isHomeState && <Text style={styles.heroSub}>Your saved home state. Your current location has not been confirmed.</Text>}
       <StatusBadge status={carryStatus} />
       {lastCrossedAt && (
         <Text style={styles.heroSub}>Last crossed {timeAgo(lastCrossedAt)}</Text>
@@ -246,21 +249,23 @@ function DevCrossingSimulator() {
 export default function HomeScreen() {
   const router = useRouter();
   const { currentState, isTracking, crossingHistory } = useLocationStore();
-  const { permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
+  const { homeState, permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
   const { openPaywall } = useSubscription();
   const [carryStatus, setCarryStatus] = useState<CarryStatus>('unknown');
   const alertLimitReached = false;
 
-  const lastCrossedAt = crossingHistory[0]?.crossedAt ?? null;
+  const displayState = currentState ?? homeState;
+  const isHomeState = !currentState && !!homeState;
+  const lastCrossedAt = currentState ? crossingHistory[0]?.crossedAt ?? null : null;
 
   useEffect(() => {
     let active = true;
     setCarryStatus('unknown');
-    if (currentState) void getCarryStatusForUser(currentState, permits, firearmsProfile)
+    if (displayState) void getCarryStatusForUser(displayState, permits, firearmsProfile)
       .then(status => { if(active) setCarryStatus(status); })
       .catch(() => { if(active) setCarryStatus('unknown'); });
     return () => { active=false; };
-  }, [currentState, permits, firearmsProfile]);
+  }, [displayState, homeState, permits, firearmsProfile]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -278,17 +283,18 @@ export default function HomeScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.emptyFeedSub}>Free beta · Reviewed coverage is limited. Verify official sources before acting.</Text>
-        {!isTracking && <Pressable onPress={() => router.push('/(tabs)/profile')}><Text style={styles.heroTap}>Automatic tracking is off. Manage location in Profile →</Text></Pressable>}
+        {Platform.OS === 'web' ? <Pressable onPress={() => router.push('/(tabs)/map')}><Text style={styles.heroTap}>See my live location on the map →</Text></Pressable> : !isTracking && <Pressable onPress={() => router.push('/(tabs)/profile')}><Text style={styles.heroTap}>Automatic tracking is off. Manage location in Profile →</Text></Pressable>}
         <Pressable onPress={() => router.push('/(tabs)/laws')}><Text style={styles.heroTap}>Browse laws by state →</Text></Pressable>
         {/* Hero card */}
         <HeroStateCard
-          stateCode={currentState}
+          stateCode={displayState}
+          isHomeState={isHomeState}
           carryStatus={carryStatus}
           lastCrossedAt={lastCrossedAt}
         />
 
         {/* Top 3 law highlights */}
-        {currentState && <TopLawHighlights stateCode={currentState} />}
+        {displayState && <TopLawHighlights stateCode={displayState} />}
 
         {/* Crossing history */}
         <Text style={styles.sectionHeader}>Crossing History</Text>
