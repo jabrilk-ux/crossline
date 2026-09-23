@@ -32,7 +32,7 @@ const shapes = (borders as GeoJSON.FeatureCollection).features.flatMap(feature =
   const bounds: ViewBox = [Math.min(...xs), Math.min(...ys), Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)];
   return [{ ...state, bounds, path: polygons.map(poly => poly.map(ring => ring.map((p, i) => `${i ? 'L' : 'M'}${point(p).join(',')}`).join(' ') + 'Z').join(' ')).join(' ') }];
 });
-const control: CSSProperties = { background: colors.steel, color: 'white', border: '1px solid #58708c', borderRadius: 8, padding: '10px 14px', minHeight: 44, cursor: 'pointer', font: 'inherit' };
+const control: CSSProperties = { background: colors.surfaceRaised, color: 'white', border: '1px solid #58708c', borderRadius: 16, padding: '10px 14px', minHeight: 44, cursor: 'pointer', font: 'inherit' };
 
 export default function StateMap() {
   const router = useRouter();
@@ -78,7 +78,7 @@ export default function StateMap() {
       if (shape) { const [x,y,w,h] = shape.bounds; const size = Math.max(w,h,2) * 1.3; setView([x+w/2-size/2,y+h/2-size/2,size,size]); }
     }
   }
-  return <main style={{ flex: 1, overflowY: 'auto', background: colors.navy, color: 'white', fontFamily: 'Inter_400Regular, sans-serif', padding: '24px clamp(16px, 4vw, 48px)' }}>
+  return <main style={{ flex: 1, overflowY: 'auto', background: colors.navy, color: 'white', fontFamily: 'Geist_400Regular, sans-serif', padding: '24px clamp(16px, 4vw, 48px)' }}>
     <h1 style={{ margin: '0 0 8px', fontSize: 28 }}>Explore the map</h1>
     <p style={{ color: '#b7c8dc', margin: '0 0 20px', lineHeight: 1.5 }}>Select a state to explore guidance and official sources. Drag to pan; use + and − to zoom.</p>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
@@ -100,7 +100,7 @@ export default function StateMap() {
       {location.error || (position ? `${location.stale ? 'Last known location' : 'Your location'}${currentName ? ` · ${currentName}` : ' · Outside mapped U.S. states'} · Accuracy ±${Math.round(position.accuracy)} m · Updated ${new Date(position.timestamp).toLocaleTimeString()}${follow && !location.stale ? ' · Following you' : ''}` : location.enabled ? 'Finding your location… Allow location access when your browser asks.' : 'Location is off. Choose Locate me to show your position.')}
     </p>
     <svg aria-label="Interactive state map" role="group" viewBox={view.join(' ')}
-      style={{ width: '100%', height: 'clamp(320px, 53vh, 620px)', display: 'block', background: '#10243b', borderRadius: 14, border: '1px solid #35516e', touchAction: 'none', cursor: 'grab' }}
+      style={{ width: '100%', height: 'clamp(320px, 53vh, 620px)', display: 'block', background: colors.surface, borderRadius: 20, border: '1px solid #35516e', touchAction: 'none', cursor: 'grab' }}
       onPointerDown={e => {
         if (!e.isPrimary || e.button !== 0) return;
         const rect = e.currentTarget.getBoundingClientRect();
@@ -133,7 +133,7 @@ export default function StateMap() {
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, padding: '14px 0', fontSize: 13 }}>
       {(Object.keys(labels) as CarryStatus[]).map(key => <span key={key}><span style={{ display:'inline-block', width:10, height:10, borderRadius:5, background:key==='unknown'?'#304b67':statusColors[key], border:'1px solid #91aac2', marginRight:6 }} />{labels[key]}</span>)}
     </div>
-    <section aria-live="polite" style={{ border:'1px solid #35516e', borderRadius:14, padding:20, background:'#122a43' }}>
+    <section aria-live="polite" style={{ border:'1px solid #35516e', borderRadius:14, padding:20, background:colors.surface }}>
       <h2 style={{ margin:'0 0 10px',fontSize:22 }}>{state?.name ?? 'Choose a state'}</h2>
       <p style={{ color:'#c4d3e3',lineHeight:1.6,margin:'0 0 14px' }}>{loading ? 'Loading reviewed guidance…' : state ? `${labels[status]}. ${status === 'unknown' ? 'Unable to determine carry status from the available reviewed rules and your profile.' : 'Check the full conditions and sources for your profile before relying on this guidance.'}` : 'Click a state on the map or use “Find a state” above, including small states and Washington D.C.'}</p>
       {state && <><p style={{ color:'#c4d3e3',lineHeight:1.6 }}>{getLegalReference(state.code) ? 'Included in the 14-state East Coast reference beta.' : 'Outside the East Coast reference beta. Verify this jurisdiction separately.'}</p>

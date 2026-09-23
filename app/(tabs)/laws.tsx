@@ -147,6 +147,7 @@ function CategoryTabs({
   return (
     <ScrollView
       horizontal
+      style={{flexGrow:0,flexShrink:0,height:56}}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={tabs.container}
     >
@@ -254,9 +255,10 @@ export default function LawsScreen() {
           onPress={() => setSheetVisible(true)}
           activeOpacity={0.8}
         >
-          <View>
+          <View style={{width:48,height:48,borderRadius:14,backgroundColor:colors.surfaceRaised,alignItems:'center',justifyContent:'center',marginRight:12}}><Text style={{...typography.mono,color:colors.white}}>{selectedState}</Text></View>
+          <View style={{flex:1}}>
             <Text style={ls.stateSelectorLabel}>State Laws</Text>
-            <Text style={ls.stateSelectorName}>{stateName}</Text>
+            <Text style={ls.stateSelectorName}>{stateName}</Text><Text style={{...typography.caption,color:colors.skyLight,marginTop:4}}>Change state ▾</Text>
           </View>
           <Text style={ls.stateSelectorChevron}>▾</Text>
         </TouchableOpacity>
@@ -275,7 +277,7 @@ export default function LawsScreen() {
       {/* Law detail cards */}
       <ScrollView contentContainerStyle={ls.scroll} showsVerticalScrollIndicator={false}>
         <LegalReferenceCard key={selectedState} stateCode={selectedState} />
-        {!loading && rules.map((rule, i) => <View key={i} style={{ marginBottom: 16, padding: 14, backgroundColor: colors.steel, borderRadius: 10 }}>
+        {!loading && rules.map((rule, i) => <View key={i} style={{ marginBottom: 16, padding: 14, backgroundColor: colors.steel, borderRadius: 16 }}>
           <Text style={{ color: colors.white, marginBottom: 8 }}>{rule.explanation}</Text>
           <Text style={{ color: colors.silver }}>Scope: {rule.firearm_type} · {rule.carry_purpose} · {rule.permitless ? 'permitless rule' : `${rule.permit_state} ${rule.permit_type} permit`}. Effective {rule.effective_date} through {rule.expires_on}.</Text>
           <TouchableOpacity onPress={() => { void Linking.openURL(rule.source_url).catch(() => {}); }}><Text style={{ color: colors.sky, marginTop: 8 }}>Review rule source →</Text></TouchableOpacity>
@@ -309,10 +311,10 @@ export default function LawsScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const ls = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.navy },
+  container: { flex: 1, backgroundColor: colors.navy, width:'100%',maxWidth:1000,alignSelf:'center' },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 12,
   },
   stateSelector: {
@@ -356,7 +358,7 @@ const banner = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 4,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
   },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 4, flexShrink: 0 },
@@ -372,7 +374,8 @@ const tabs = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   tab: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
+    minHeight:36,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
@@ -392,7 +395,7 @@ const tabs = StyleSheet.create({
 const card = StyleSheet.create({
   container: {
     backgroundColor: colors.steel,
-    borderRadius: 14,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -466,7 +469,7 @@ const sheet = StyleSheet.create({
   },
   search: {
     backgroundColor: colors.steel,
-    borderRadius: 10,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontFamily: typography.body.fontFamily,

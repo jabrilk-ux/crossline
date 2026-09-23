@@ -360,6 +360,7 @@ export default function ProfileScreen() {
           const expiring = permit.expiryDate ? daysUntil(permit.expiryDate) <= 30 : false;
           return (
             <View key={permit.id} style={styles.permitCard}>
+              <View style={{width:48,height:48,borderRadius:14,backgroundColor:colors.surfaceRaised,alignItems:'center',justifyContent:'center',marginRight:14}}><Text style={{...typography.mono,color:colors.white}}>{permit.stateCode}</Text></View>
               <View style={styles.permitInfo}>
                 <View style={styles.permitTop}>
                   <Text style={styles.permitState}>{stateName}</Text>
@@ -428,13 +429,13 @@ export default function ProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.navy },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  container: { flex: 1, backgroundColor: colors.navy, width:'100%',maxWidth:1000,alignSelf:'center' },
+  header: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 12 },
   title: { fontFamily: typography.h1.fontFamily, fontSize: typography.h1.fontSize, color: colors.white },
   scroll: { paddingHorizontal: 20, paddingBottom: 48 },
   emptyText: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.silver, marginBottom: 10 },
 
-  permitCard: { backgroundColor: colors.steel, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center' },
+  permitCard: { backgroundColor: colors.steel, borderRadius: 20, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center' },
   permitInfo: { flex: 1 },
   permitTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   permitState: { fontFamily: typography.h2.fontFamily, fontSize: typography.body.fontSize, color: colors.white },
@@ -445,23 +446,23 @@ const styles = StyleSheet.create({
   deleteButton: { padding: 4 },
   deleteIcon: { color: colors.silver, fontSize: 16 },
 
-  addButton: { borderWidth: 1, borderColor: colors.sky, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
+  addButton: { borderWidth: 1, borderColor: colors.sky, borderRadius: 16, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
   addButtonText: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.sky },
 
-  profileCard: { backgroundColor: colors.steel, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: 8 },
+  profileCard: { backgroundColor: colors.steel, borderRadius: 20, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: 8 },
   profileRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border + '55' },
   profileLabel: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.silver },
   profileValue: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.white, textTransform: 'capitalize' },
-  editButton: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
+  editButton: { borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', marginBottom: 8 },
   editButtonText: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.silver },
 
-  toggleCard: { backgroundColor: colors.steel, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: 8 },
+  toggleCard: { backgroundColor: colors.steel, borderRadius: 20, borderWidth: 1, borderColor: colors.border, overflow: 'hidden', marginBottom: 8 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border + '55' },
   toggleInfo: { flex: 1, paddingRight: 12 },
   toggleLabel: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.white },
   toggleSub: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.silver, marginTop: 2 },
 
-  subCard: { backgroundColor: colors.steel, borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.border, marginBottom: 8 },
+  subCard: { backgroundColor: colors.steel, borderRadius: 20, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.border, marginBottom: 8 },
   subCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   subTierBadge: { backgroundColor: colors.sky + '33', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.sky + '66' },
   subTierText: { fontFamily: typography.mono.fontFamily, fontSize: 12, color: colors.sky, fontWeight: '700' },
@@ -472,16 +473,16 @@ const styles = StyleSheet.create({
   subUpgradeBtn: { backgroundColor: colors.sky, borderColor: colors.sky },
   subUpgradeText: { color: colors.white },
 
-  accountCard: { backgroundColor: colors.steel, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 8 },
+  accountCard: { backgroundColor: colors.steel, borderRadius: 20, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 8 },
   accountLabel: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.silver, marginBottom: 4 },
   accountEmail: { fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.white },
 
-  signOutButton: { backgroundColor: colors.danger + '22', borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.danger + '66', marginBottom: 8 },
+  signOutButton: { backgroundColor: colors.danger + '22', borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.danger + '66', marginBottom: 8 },
   signOutText: { fontFamily: typography.h2.fontFamily, fontSize: typography.body.fontSize, color: colors.danger },
 });
 
 const sectionStyle = StyleSheet.create({
-  header: { fontFamily: typography.h2.fontFamily, fontSize: 11, color: colors.silver, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 10 },
+  header: { fontFamily: typography.mono.fontFamily, fontSize: 11, color: colors.silver, letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 10 },
 });
 
 const editStyle = StyleSheet.create({
@@ -495,7 +496,7 @@ const addSheet = StyleSheet.create({
   container: { backgroundColor: colors.navy, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, gap: 10, borderTopWidth: 1, borderTopColor: colors.border },
   handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 8 },
   title: { fontFamily: typography.h2.fontFamily, fontSize: typography.h2.fontSize, color: colors.white, marginBottom: 4 },
-  input: { backgroundColor: colors.steel, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.white, borderWidth: 1, borderColor: colors.border },
+  input: { backgroundColor: colors.steel, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, fontFamily: typography.body.fontFamily, fontSize: typography.body.fontSize, color: colors.white, borderWidth: 1, borderColor: colors.border },
   dropdown: { backgroundColor: colors.steel, borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   dropdownRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border + '44' },
   dropdownCode: { fontFamily: typography.mono.fontFamily, fontSize: typography.mono.fontSize, color: colors.silver, width: 28 },
@@ -505,7 +506,7 @@ const addSheet = StyleSheet.create({
   chipActive: { backgroundColor: colors.sky, borderColor: colors.sky },
   chipText: { fontFamily: typography.caption.fontFamily, fontSize: typography.caption.fontSize, color: colors.silver },
   chipTextActive: { color: colors.white },
-  cta: { backgroundColor: colors.sky, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
+  cta: { backgroundColor: colors.sky, borderRadius: 20, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   ctaDisabled: { opacity: 0.4 },
   ctaText: { fontFamily: typography.h2.fontFamily, fontSize: typography.h2.fontSize, color: colors.white },
 });

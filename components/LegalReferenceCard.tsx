@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, Linking, StyleSheet } from 'react-native';
 import { getLegalReference, referenceNeedsRefresh } from '../services/legalReferences';
-import { colors } from '../constants/theme';
+import { colors, typography } from '../constants/theme';
 export default function LegalReferenceCard({ stateCode }: { stateCode: string }) {
   const entry = getLegalReference(stateCode);
   const [linkError, setLinkError] = useState('');
@@ -29,10 +29,10 @@ export default function LegalReferenceCard({ stateCode }: { stateCode: string })
   </View>;
 }
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.steel, borderRadius: 14, padding: 18, gap: 12, marginBottom: 16 },
-  title: { color: colors.white, fontSize: 17, fontWeight: '600' },
-  body: { color: '#D5DEEA', fontSize: 15, lineHeight: 23 },
-  meta: { color: '#BCCADB', fontSize: 12, lineHeight: 18 },
+  card: { backgroundColor: colors.steel, borderRadius: 20, borderWidth:1, borderColor:colors.border, padding: 18, gap: 12, marginBottom: 16 },
+  title: { fontFamily:typography.h2.fontFamily,color: colors.white, fontSize: 17, fontWeight: '600' },
+  body: { fontFamily:typography.body.fontFamily,color: '#D5DEEA', fontSize: 15, lineHeight: 23 },
+  meta: { fontFamily:typography.caption.fontFamily,color: '#BCCADB', fontSize: 12, lineHeight: 18 },
   warning: { color: colors.warning, fontSize: 14, lineHeight: 21 },
   link: { paddingVertical: 10, gap: 4 },
 });

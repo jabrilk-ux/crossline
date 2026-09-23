@@ -1,10 +1,12 @@
+import * as Location from 'expo-location';
+import { detectStateFromCoords } from '../../services/geofence';
 import { requestCrossingNotifications } from '../../services/notifications';
 import { loadAccount } from '../../services/account';
 import { savePreferences } from '../../services/preferences';
 import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView,
-  ScrollView, TextInput, Switch, Alert, ActivityIndicator,
+  ScrollView, TextInput, Switch, Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import { useRouter, Redirect } from 'expo-router';
 import { colors, typography } from '../../constants/theme';
@@ -48,6 +50,19 @@ function StepHomeState({
   value, onChange,
 }: { value: string; onChange: (code: string) => void }) {
   const [query, setQuery] = useState('');
+  const [locating,setLocating] = useState(false);
+  const [locationMessage,setLocationMessage] = useState('');
+  async function locateHome() {
+    setLocating(true); setLocationMessage('');
+    try {
+      if (!(await Location.requestForegroundPermissionsAsync()).granted) throw new Error('Allow location in your browser or device settings, or choose a state below.');
+      const result = await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced});
+      const code = detectStateFromCoords(result.coords.latitude,result.coords.longitude);
+      if (!code) throw new Error('No U.S. state detected. Choose your home state below.');
+      onChange(code); setQuery(code); setLocationMessage('Location suggested. Confirm this is your home state before continuing.');
+    } catch(e) { setLocationMessage(e instanceof Error?e.message:'Location unavailable. Choose a state below.'); }
+    finally { setLocating(false); }
+  }
   const filtered = STATES.filter(
     s =>
       s.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -56,8 +71,8 @@ function StepHomeState({
 
   return (
     <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Where is your home state?</Text>
-      <Text style={styles.stepSubtitle}>We use this to determine your resident permit status.</Text>
+      <Text style={styles.stepTitle}>Where’s home?</Text>
+      <Text style={styles.stepSubtitle}>Your home state sets your resident permit status.</Text>
       <TextInput
         style={styles.searchInput}
         placeholder="Search states..."
@@ -65,6 +80,8 @@ function StepHomeState({
         value={query}
         onChangeText={setQuery}
       />
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Use my location" disabled={locating} onPress={locateHome} style={{padding:16,borderRadius:16,backgroundColor:colors.skyLight+'1F',borderWidth:1,borderColor:colors.skyLight+'59'}}><Text style={{...typography.body,color:colors.white}}>{locating?'Finding your location…':'↗  Use my location'}</Text></TouchableOpacity>
+      {locationMessage ? <Text accessibilityLiveRegion="polite" style={styles.stepSubtitle}>{locationMessage}</Text> : null}
       <ScrollView style={styles.stateList} showsVerticalScrollIndicator={false}>
         {filtered.map(state => (
           <TouchableOpacity
@@ -78,6 +95,7 @@ function StepHomeState({
             <Text style={[styles.stateName, value === state.code && styles.stateTextSelected]}>
               {state.name}
             </Text>
+            {value === state.code && <Text style={{color:colors.skyLight,marginLeft:'auto'}}>✓</Text>}
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -269,6 +287,7 @@ function StepLocation({
   permissionGranted: boolean | null;
   onRequest: () => void;
 }) {
+  if (Platform.OS === 'web') return <View style={styles.stepContent}><Text style={styles.stepTitle}>Ready for the road</Text><Text style={styles.stepSubtitle}>After setup, open the map to see your live position. Your browser will ask for location access there.</Text><Text style={styles.locationDetail}>Background crossing alerts require the installed mobile app. Browser location works while the map is open.</Text></View>;
   return (
     <View style={styles.stepContent}>
       <Text style={styles.stepTitle}>Enable background location</Text>
@@ -463,12 +482,12 @@ export default function OnboardingScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.navy },
+  container: { flex: 1, backgroundColor: colors.navy, width:'100%',maxWidth:640,alignSelf:'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 16,
     gap: 12,
   },
@@ -478,11 +497,11 @@ const styles = StyleSheet.create({
   progressSegment: {
     flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.steel,
   },
-  progressSegmentActive: { backgroundColor: colors.sky },
+  progressSegmentActive: { backgroundColor: colors.skyLight },
   stepCounter: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.silver,
+    fontFamily: typography.mono.fontFamily,
+    fontSize: 12,
+    color: colors.muted,
     minWidth: 32,
     textAlign: 'right',
   },
@@ -502,7 +521,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     backgroundColor: colors.steel,
-    borderRadius: 10,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: typography.body.fontFamily,
@@ -518,7 +537,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    borderRadius: 8,
+    borderRadius: 14, minHeight:52,
   },
   stateRowSelected: { backgroundColor: colors.sky + '33' },
   stateCode: {
@@ -584,7 +603,7 @@ const styles = StyleSheet.create({
   toggleChipTextActive: { color: colors.white },
   addButton: {
     backgroundColor: colors.sky,
-    borderRadius: 10,
+    borderRadius: 16,
     paddingVertical: 12,
     alignItems: 'center',
   },
@@ -614,7 +633,7 @@ const styles = StyleSheet.create({
   },
   permissionGranted: {
     backgroundColor: colors.success + '22',
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
     borderColor: colors.success,
@@ -627,7 +646,7 @@ const styles = StyleSheet.create({
   },
   permissionDenied: {
     backgroundColor: colors.warning + '22',
-    borderRadius: 10,
+    borderRadius: 16,
     padding: 14,
     borderWidth: 1,
     borderColor: colors.warning,
@@ -646,7 +665,7 @@ const styles = StyleSheet.create({
   },
   ctaButton: {
     backgroundColor: colors.sky,
-    borderRadius: 12,
+    borderRadius: 20,
     paddingVertical: 16,
     alignItems: 'center',
   },

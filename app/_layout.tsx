@@ -3,10 +3,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Button, Text, View, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
-import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
-import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
-import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono/400Regular';
+import { Geist_400Regular } from '@expo-google-fonts/geist/400Regular';
+import { Geist_500Medium } from '@expo-google-fonts/geist/500Medium';
+import { Geist_600SemiBold } from '@expo-google-fonts/geist/600SemiBold';
+import { Geist_700Bold } from '@expo-google-fonts/geist/700Bold';
+import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono/400Regular';
+import { GeistMono_500Medium } from '@expo-google-fonts/geist-mono/500Medium';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { supabase, startAuthAutoRefresh } from '../services/supabase';
@@ -24,7 +26,7 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
-  const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, JetBrainsMono_400Regular });
+  const [fontsLoaded, fontError] = useFonts({ Geist_400Regular, Geist_500Medium, Geist_600SemiBold, Geist_700Bold, GeistMono_400Regular, GeistMono_500Medium });
   useEffect(startAuthAutoRefresh, []);
   useEffect(() => {
     let active = true;
@@ -71,13 +73,17 @@ export default function RootLayout() {
   }, [ready, userId, isOnboarded]);
   const openNotification = useCallback((response: Notifications.NotificationResponse | null) => {
     const code = response?.notification.request.content.data?.stateCode;
-    if (userId && isOnboarded && typeof code === 'string' && /^[A-Z]{2}$/.test(code)) router.push(`/(tabs)/laws?state=${code}`);
+    if (userId && isOnboarded && typeof code === 'string' && /^[A-Z]{2}$/.test(code)) router.push(`/crossing-alert?state=${code}`);
   }, [userId, isOnboarded]);
   useEffect(() => {
     if (!ready || Platform.OS === 'web') return;
     const listener = Notifications.addNotificationResponseReceivedListener(openNotification);
+    const foreground = Notifications.addNotificationReceivedListener(notification => {
+      const { stateCode, carryStatus } = notification.request.content.data;
+      if (userId && isOnboarded && typeof stateCode === 'string' && /^[A-Z]{2}$/.test(stateCode) && (carryStatus === 'prohibited' || carryStatus === 'restricted')) router.push(`/crossing-alert?state=${stateCode}`);
+    });
     void Notifications.getLastNotificationResponseAsync().then(openNotification).catch(() => {});
-    return () => listener.remove();
+    return () => { listener.remove(); foreground.remove(); };
   }, [ready, openNotification]);
   if (!ready || (!fontsLoaded && !fontError)) return <View style={{ flex: 1, padding: 30, backgroundColor: colors.navy, justifyContent: 'center', gap: 20 }}>
     {error ? <><Text style={{ color: colors.white }}>{error}</Text><OfflineBrief userId={userId} /><Button title="Retry" onPress={() => setAttempt(n => n + 1)} /><Button title="Sign out" onPress={() => { void supabase.auth.signOut(); }} /></> : <ActivityIndicator accessibilityLabel="Loading your account" color={colors.sky} />}
@@ -89,6 +95,6 @@ export default function RootLayout() {
     <Stack.Screen name="privacy" />
     <Stack.Screen name="references" />
     <Stack.Protected guard={!userId || !isOnboarded}><Stack.Screen name="(auth)" /></Stack.Protected>
-    <Stack.Protected guard={Boolean(userId && isOnboarded)}><Stack.Screen name="(tabs)" /><Stack.Screen name="paywall" /></Stack.Protected>
+    <Stack.Protected guard={Boolean(userId && isOnboarded)}><Stack.Screen name="(tabs)" /><Stack.Screen name="paywall" /><Stack.Screen name="crossing-alert" /></Stack.Protected>
   </Stack>;
 }
