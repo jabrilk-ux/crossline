@@ -5,6 +5,7 @@ import { STATES, getStateName } from '../constants/states';
 import { colors, typography } from '../constants/theme';
 import { getLegalReference } from '../services/legalReferences';
 import Button from './ActionButton';
+import StateFlag from './StateFlag';
 
 export default function TripStatePicker({ visible, value, onDone, onClose }: { visible: boolean; value: string[]; onDone: (states: string[]) => void; onClose: () => void }) {
   const [draft, setDraft] = useState<string[]>([]);
@@ -23,7 +24,7 @@ export default function TripStatePicker({ visible, value, onDone, onClose }: { v
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }} contentContainerStyle={{ gap: 4 }}>
           {filtered.map(state => { const count = draft.filter(code => code === state.code).length; return <Pressable key={state.code} accessibilityRole="button" accessibilityLabel={`Add ${state.name}`} disabled={draft.length >= 30} onPress={() => { setDraft(list => [...list, state.code]); setAnnouncement(`${state.name} added as stop ${draft.length + 1}.`); }} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 14, padding: 14, backgroundColor: pressed ? colors.surfaceRaised : colors.surface, opacity: draft.length >= 30 ? 0.4 : 1 })}>
-            <View style={{ width: 42, height: 42, backgroundColor: colors.surfaceRaised, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}><Text style={{ ...typography.caption, color: colors.skyLight }}>{state.code}</Text></View>
+            <StateFlag code={state.code} />
             <View style={{ flex: 1 }}><Text style={{ ...typography.body, color: colors.white }}>{state.name}</Text><Text style={{ ...typography.caption, color: colors.muted, marginTop: 3 }}>{getLegalReference(state.code) ? 'East Coast beta references' : 'Outside beta reference coverage'}</Text></View>
             <Text style={{ color: colors.skyLight, fontSize: 18 }}>{count ? `${count} · +` : '+'}</Text>
           </Pressable>; })}
