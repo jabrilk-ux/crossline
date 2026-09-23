@@ -2,7 +2,7 @@ import LegalReferenceCard from '../../components/LegalReferenceCard';
 import type { CarryRule } from '../../services/carryRules';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable,
+  View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Platform,
   TouchableOpacity, TextInput, Modal, FlatList, Linking,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -68,13 +68,14 @@ function StateSelectorSheet({
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType={Platform.OS === 'web' ? 'none' : 'slide'} transparent onRequestClose={onClose}>
       <View style={sheet.overlay}>
         <View style={sheet.container}>
           <View style={sheet.handle} />
-          <Text style={sheet.title}>Select State</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><Text style={sheet.title}>Select State</Text><Pressable accessibilityRole="button" accessibilityLabel="Close state selector" onPress={onClose} style={{ padding: 12 }}><Text style={{ color: colors.silver, fontSize: 24 }}>×</Text></Pressable></View>
           <TextInput
             style={sheet.search}
+            accessibilityLabel="Search law states"
             placeholder="Search states..."
             placeholderTextColor={colors.silver}
             value={query}
@@ -86,6 +87,8 @@ function StateSelectorSheet({
             keyExtractor={item => item.code}
             renderItem={({ item }) => (
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`View ${item.name} laws`}
                 style={[sheet.stateRow, item.code === selectedCode && sheet.stateRowSelected]}
                 onPress={() => { onSelect(item.code); onClose(); setQuery(''); }}
               >
@@ -204,10 +207,10 @@ function LawDetailCard({ law }: { law: StateLaw }) {
 
 export default function LawsScreen() {
   const params = useLocalSearchParams<{ state?: string; category?: string }>();
-  const { currentState } = useLocationStore();
-  const { permits, firearmsProfile } = useUserStore();
+  const { currentState, browserLocation } = useLocationStore();
+  const { permits, firearmsProfile, homeState, userId } = useUserStore();
 
-  const initialState = params.state ?? currentState ?? 'VA';
+  const initialState = params.state ?? (browserLocation?.userId === userId ? browserLocation?.stateCode : null) ?? currentState ?? homeState ?? 'VA';
   const initialCategory = (params.category as LawCategory | undefined) ?? 'carry';
 
   const [selectedState, setSelectedState] = useState(initialState);
@@ -251,6 +254,8 @@ export default function LawsScreen() {
       {/* State selector header */}
       <View style={ls.header}>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Change law state"
           style={ls.stateSelector}
           onPress={() => setSheetVisible(true)}
           activeOpacity={0.8}
@@ -276,7 +281,7 @@ export default function LawsScreen() {
 
       {/* Law detail cards */}
       <ScrollView contentContainerStyle={ls.scroll} showsVerticalScrollIndicator={false}>
-        <LegalReferenceCard key={selectedState} stateCode={selectedState} />
+        <LegalReferenceCard key={selectedState} stateCode={selectedState} compact />
         {!loading && rules.map((rule, i) => <View key={i} style={{ marginBottom: 16, padding: 14, backgroundColor: colors.steel, borderRadius: 16 }}>
           <Text style={{ color: colors.white, marginBottom: 8 }}>{rule.explanation}</Text>
           <Text style={{ color: colors.silver }}>Scope: {rule.firearm_type} · {rule.carry_purpose} · {rule.permitless ? 'permitless rule' : `${rule.permit_state} ${rule.permit_type} permit`}. Effective {rule.effective_date} through {rule.expires_on}.</Text>
@@ -442,12 +447,17 @@ const sheet = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: '#00000088',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    padding: 16,
   },
   container: {
     backgroundColor: colors.navy,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 32,
@@ -479,7 +489,7 @@ const sheet = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: 8,
   },
-  list: { flex: 1 },
+  list: { flexGrow: 0, flexShrink: 1 },
   stateRow: {
     flexDirection: 'row',
     alignItems: 'center',

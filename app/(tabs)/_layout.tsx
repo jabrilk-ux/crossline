@@ -10,6 +10,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: colors.navy },
         tabBarPosition: wide ? 'left' : 'bottom',
         tabBarStyle: { backgroundColor: colors.navy, borderTopColor: '#132743', borderRightColor: colors.border, ...(wide ? {width:200,minWidth:200,maxWidth:200,paddingTop:32} : {height:84,paddingTop:10,paddingBottom:18}) },
         tabBarActiveTintColor: colors.skyLight,

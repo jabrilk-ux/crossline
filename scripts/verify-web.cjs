@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {spawn} = require('node:child_process');
 const root=path.resolve(__dirname,'../dist');
-const types={'.html':'text/html','.js':'application/javascript','.png':'image/png','.svg':'image/svg+xml','.ttf':'font/ttf','.json':'application/json','.ico':'image/x-icon'};
+const types={'.css':'text/css','.html':'text/html','.js':'application/javascript','.png':'image/png','.svg':'image/svg+xml','.ttf':'font/ttf','.json':'application/json','.ico':'image/x-icon'};
 const server=http.createServer((req,res)=>{
  const file=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));
  if(!file.startsWith(root+path.sep)&&file!==root){res.writeHead(403);res.end();return;}

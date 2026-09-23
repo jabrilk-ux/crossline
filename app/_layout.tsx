@@ -88,7 +88,7 @@ export default function RootLayout() {
   if (!ready || (!fontsLoaded && !fontError)) return <View style={{ flex: 1, padding: 30, backgroundColor: colors.navy, justifyContent: 'center', gap: 20 }}>
     {error ? <><Text style={{ color: colors.white }}>{error}</Text><OfflineBrief userId={userId} /><Button title="Retry" onPress={() => setAttempt(n => n + 1)} /><Button title="Sign out" onPress={() => { void supabase.auth.signOut(); }} /></> : <ActivityIndicator accessibilityLabel="Loading your account" color={colors.sky} />}
   </View>;
-  return <Stack screenOptions={{ headerShown: false }}>
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.navy } }}>
     <Stack.Screen name="index" />
     <Stack.Screen name="auth-callback" />
     <Stack.Screen name="reset-password" />
