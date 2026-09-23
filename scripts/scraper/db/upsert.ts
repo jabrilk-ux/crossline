@@ -34,7 +34,7 @@ export interface StateLawInsert {
  * upsertLaw()
  * Insert or update a state_laws row.
  * Conflict target: (state_code, category)
- * Never overwrites last_verified — that is set by human review only.
+ * Invalidates prior approval whenever source-derived content changes.
  */
 export async function upsertLaw(law: StateLawInsert, dryRun: boolean): Promise<void> {
   if (dryRun) return; // dry run — skip DB write
@@ -51,10 +51,10 @@ export async function upsertLaw(law: StateLawInsert, dryRun: boolean): Promise<v
       carry_status:      law.carry_status,
       statute_reference: law.statute_reference,
       statute_url:       law.statute_url,
-      flagged:           law.flagged,
+      flagged:           true,
       last_scraped:      law.last_scraped,
       updated_at:        new Date().toISOString(),
-      // last_verified intentionally omitted — human review only
+      last_verified:     null, // Only a separate review may approve the new text
     },
     { onConflict: 'state_code,category', ignoreDuplicates: false }
   );

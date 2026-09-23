@@ -1,146 +1,100 @@
-import { useEffect, useRef } from 'react';
-import { Stack } from 'expo-router';
-import { useRouter } from 'expo-router';
-import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
-import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
+import OfflineBrief from '../components/OfflineBrief';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Button, Text, View, Platform } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
+import { useFonts } from 'expo-font';
+import { Geist_400Regular } from '@expo-google-fonts/geist/400Regular';
+import { Geist_500Medium } from '@expo-google-fonts/geist/500Medium';
+import { Geist_600SemiBold } from '@expo-google-fonts/geist/600SemiBold';
+import { Geist_700Bold } from '@expo-google-fonts/geist/700Bold';
+import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono/400Regular';
+import { GeistMono_500Medium } from '@expo-google-fonts/geist-mono/500Medium';
 import * as SplashScreen from 'expo-splash-screen';
-import * as ExpoNotifications from 'expo-notifications';
-import Purchases from 'react-native-purchases';
-
-import { validateGeoJSON } from '../services/geofence';
-import { startTracking, onStateCrossing } from '../services/location';
-import {
-  registerForPushNotifications,
-  sendCrossingAlert,
-  getCarryStatusForState,
-} from '../services/notifications';
-import {
-  initializePurchases,
-  getCustomerInfo,
-  getTierFromCustomerInfo,
-  type CustomerInfo,
-} from '../services/revenuecat';
+import * as Notifications from 'expo-notifications';
+import { supabase, startAuthAutoRefresh } from '../services/supabase';
+import { loadAccount } from '../services/account';
+import { startTracking, stopTracking } from '../services/location';
+import { getPreferences } from '../services/preferences';
 import { useUserStore } from '../store/userStore';
+import { useLocationStore } from '../store/locationStore';
+import { colors } from '../constants/theme';
 
-SplashScreen.preventAutoHideAsync();
-
-// Initialize RevenueCat before the component tree mounts
-initializePurchases();
-
+void SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const router = useRouter();
-  const {
-    isOnboarded, permits,
-    setSubscriptionTier, setCustomerInfo,
-    incrementAlertCount, resetAlertCount, setAlertCountResetMonth,
-  } = useUserStore();
-
-  const unsubscribeCrossingRef = useRef<(() => void) | null>(null);
-  const notificationListenerRef = useRef<ExpoNotifications.Subscription | null>(null);
-  const responseListenerRef = useRef<ExpoNotifications.Subscription | null>(null);
-  const rcListenerRef = useRef<any>(null);
-
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_600SemiBold,
-    Inter_700Bold,
-    JetBrainsMono_400Regular,
-  });
-
-  // ─── Font / splash gate ───────────────────────────────────────────────────
-
+  const { userId, isOnboarded } = useUserStore();
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [fontsLoaded, fontError] = useFonts({ Geist_400Regular, Geist_500Medium, Geist_600SemiBold, Geist_700Bold, GeistMono_400Regular, GeistMono_500Medium });
+  useEffect(startAuthAutoRefresh, []);
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
+    let active = true;
+    let generation = 0;
+    let currentUser: string | null | undefined;
+    async function sync(id: string | null) {
+      if (id === currentUser) return;
+      currentUser = id;
+      const version = ++generation;
+      setReady(false); setError('');
+      await stopTracking().catch(() => {});
+      if (!active || version !== generation) return;
+      useUserStore.getState().reset();
+      useLocationStore.setState({ browserLocation: null, currentState: null, previousState: null, crossingHistory: [], isTracking: false });
+      useUserStore.getState().setUserId(id);
+      try {
+        if (id) await loadAccount(id);
+        if (active && version === generation) setReady(true);
+      } catch {
+        if (active && version === generation) setError('Could not load your account. Check your connection and retry.');
+      }
     }
-  }, [fontsLoaded]);
-
-  // ─── Core services bootstrap ──────────────────────────────────────────────
-
+    // Defer database calls until the Auth callback has released its lock.
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') router.replace('/reset-password');
+      setTimeout(() => { if (active) void sync(session?.user.id ?? null); }, 0);
+    });
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+      if (error) setError(error.message);
+      else void sync(data.session?.user.id ?? null);
+    });
+    return () => { active = false; generation++; data.subscription.unsubscribe(); };
+  }, [attempt]);
   useEffect(() => {
-    if (!fontsLoaded || !isOnboarded) return;
-
-    if (__DEV__) {
-      validateGeoJSON();
-    }
-
-    // Start location tracking
-    startTracking().catch(err => {
-      if (__DEV__) console.warn('[_layout] startTracking failed:', err);
+    if (fontsLoaded || fontError) void SplashScreen.hideAsync();
+  }, [fontsLoaded, fontError]);
+  useEffect(() => {
+    let active = true;
+    if (Platform.OS !== 'web' && ready && userId && isOnboarded) void getPreferences(userId).then(async p => {
+      if (active && p.tracking) await startTracking();
+    }).catch(() => useLocationStore.getState().setTracking(false));
+    return () => { active = false; };
+  }, [ready, userId, isOnboarded]);
+  const openNotification = useCallback((response: Notifications.NotificationResponse | null) => {
+    const code = response?.notification.request.content.data?.stateCode;
+    if (userId && isOnboarded && typeof code === 'string' && /^[A-Z]{2}$/.test(code)) router.push(`/crossing-alert?state=${code}`);
+  }, [userId, isOnboarded]);
+  useEffect(() => {
+    if (!ready || Platform.OS === 'web') return;
+    const listener = Notifications.addNotificationResponseReceivedListener(openNotification);
+    const foreground = Notifications.addNotificationReceivedListener(notification => {
+      const { stateCode, carryStatus } = notification.request.content.data;
+      if (userId && isOnboarded && typeof stateCode === 'string' && /^[A-Z]{2}$/.test(stateCode) && (carryStatus === 'prohibited' || carryStatus === 'restricted')) router.push(`/crossing-alert?state=${stateCode}`);
     });
-
-    // Register for push notifications
-    registerForPushNotifications().catch(err => {
-      if (__DEV__) console.warn('[_layout] registerForPushNotifications failed:', err);
-    });
-
-    // Bootstrap RevenueCat customer info
-    getCustomerInfo().then(info => {
-      if (info) {
-        setCustomerInfo(info as unknown as Record<string, unknown>);
-        setSubscriptionTier(getTierFromCustomerInfo(info));
-      }
-    });
-
-    // Listen for subscription changes
-    rcListenerRef.current = Purchases.addCustomerInfoUpdateListener((info: CustomerInfo) => {
-      setCustomerInfo(info as unknown as Record<string, unknown>);
-      setSubscriptionTier(getTierFromCustomerInfo(info));
-    });
-
-    // Listen for state crossings → check alert quota → send notification
-    unsubscribeCrossingRef.current = onStateCrossing(async (newState, _prevState) => {
-      const carryStatus = await getCarryStatusForState(newState);
-
-      // Enforce free-tier alert limit (3/month)
-      const store = useUserStore.getState();
-      const currentMonth = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
-
-      if (store.alertCountResetMonth !== currentMonth) {
-        setAlertCountResetMonth(currentMonth);
-        resetAlertCount();
-      }
-
-      const { subscriptionTier, monthlyAlertCount } = useUserStore.getState();
-      if (subscriptionTier === 'free' && monthlyAlertCount >= 3) {
-        if (__DEV__) {
-          console.log(`[_layout] Free alert limit reached (${monthlyAlertCount}/3), suppressing notification`);
-        }
-        return;
-      }
-
-      incrementAlertCount();
-      await sendCrossingAlert(newState, carryStatus);
-
-      if (__DEV__) {
-        console.log(`[_layout] Crossed into ${newState}, carryStatus=${carryStatus}`);
-      }
-    });
-
-    // Handle notification tap — navigate to laws screen for that state
-    responseListenerRef.current =
-      ExpoNotifications.addNotificationResponseReceivedListener(response => {
-        const stateCode = response.notification.request.content.data?.stateCode as string | undefined;
-        if (stateCode) {
-          router.push(`/(tabs)/laws?state=${stateCode}`);
-        }
-      });
-
-    return () => {
-      unsubscribeCrossingRef.current?.();
-      notificationListenerRef.current?.remove();
-      responseListenerRef.current?.remove();
-      rcListenerRef.current?.remove?.();
-    };
-  }, [fontsLoaded, isOnboarded]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (!fontsLoaded) return null;
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(auth)" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
-    </Stack>
-  );
+    void Notifications.getLastNotificationResponseAsync().then(openNotification).catch(() => {});
+    return () => { listener.remove(); foreground.remove(); };
+  }, [ready, openNotification]);
+  if (!ready || (!fontsLoaded && !fontError)) return <View style={{ flex: 1, padding: 30, backgroundColor: colors.navy, justifyContent: 'center', gap: 20 }}>
+    {error ? <><Text style={{ color: colors.white }}>{error}</Text><OfflineBrief userId={userId} /><Button title="Retry" onPress={() => setAttempt(n => n + 1)} /><Button title="Sign out" onPress={() => { void supabase.auth.signOut(); }} /></> : <ActivityIndicator accessibilityLabel="Loading your account" color={colors.sky} />}
+  </View>;
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.navy } }}>
+    <Stack.Screen name="index" />
+    <Stack.Screen name="auth-callback" />
+    <Stack.Screen name="reset-password" />
+    <Stack.Screen name="privacy" />
+    <Stack.Screen name="references" />
+    <Stack.Protected guard={!userId || !isOnboarded}><Stack.Screen name="(auth)" /></Stack.Protected>
+    <Stack.Protected guard={Boolean(userId && isOnboarded)}><Stack.Screen name="(tabs)" /><Stack.Screen name="paywall" /><Stack.Screen name="crossing-alert" /></Stack.Protected>
+  </Stack>;
 }

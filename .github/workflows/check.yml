@@ -1,0 +1,19 @@
+name: Beta checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx tsc --noEmit --project tsconfig.scraper.json
+      - run: cp .env.local.example .env.local
+      - run: npx expo export --platform ios --platform android --platform web

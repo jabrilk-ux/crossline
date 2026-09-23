@@ -1,7 +1,8 @@
+import StateSilhouette from '../../components/StateSilhouette';
 import { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, TextInput, Alert, Pressable,
+  TouchableOpacity, TextInput, Alert, Pressable, Platform, useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, typography, statusColors } from '../../constants/theme';
@@ -43,15 +44,15 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 function StatusBadge({ status }: { status: CarryStatus }) {
   const label: Record<CarryStatus, string> = {
-    allowed: 'Carry Permitted',
+    allowed: 'Reviewed guidance available',
     restricted: 'Restrictions Apply',
     prohibited: 'Carry Not Permitted',
-    unknown: 'Status Unknown',
+    unknown: 'Unable to determine',
   };
   return (
     <View style={[styles.badge, { backgroundColor: statusColors[status] + '22', borderColor: statusColors[status] }]}>
       <View style={[styles.badgeDot, { backgroundColor: statusColors[status] }]} />
-      <Text style={[styles.badgeText, { color: statusColors[status] }]}>{label[status]}</Text>
+      <Text style={[styles.badgeText, { color: status === 'unknown' ? colors.textSecondary : statusColors[status] }]}>{label[status]}</Text>
     </View>
   );
 }
@@ -73,10 +74,14 @@ function HeroStateCard({
   stateCode,
   carryStatus,
   lastCrossedAt,
+  isHomeState,
+  detectedAt,
 }: {
   stateCode: string | null;
   carryStatus: CarryStatus;
   lastCrossedAt: string | null;
+  isHomeState: boolean;
+  detectedAt: number | null;
 }) {
   const router = useRouter();
 
@@ -84,8 +89,8 @@ function HeroStateCard({
     return (
       <View style={styles.heroCard}>
         <Text style={styles.heroLabel}>Current State</Text>
-        <Text style={styles.heroPlaceholder}>Tracking your location...</Text>
-        <Text style={styles.heroSub}>GPS acquiring signal</Text>
+        <Text style={styles.heroPlaceholder}>Choose a state to get started</Text>
+        <Text style={styles.heroSub}>Browse Laws, or enable tracking in Profile.</Text>
       </View>
     );
   }
@@ -95,14 +100,16 @@ function HeroStateCard({
       style={({ pressed }) => [styles.heroCard, pressed && styles.heroCardPressed]}
       onPress={() => router.push(`/(tabs)/laws?state=${stateCode}`)}
     >
-      <Text style={styles.heroLabel}>Current State</Text>
-      <Text style={styles.heroCode}>{stateCode}</Text>
+      <Text style={styles.heroLabel}>{isHomeState ? 'Home state' : detectedAt ? 'Last detected state' : 'Current State'}</Text>
       <Text style={styles.heroName}>{getStateName(stateCode)}</Text>
+      <StateSilhouette code={stateCode} />
+      {isHomeState && <Text style={styles.heroSub}>Your saved home state. Your current location has not been confirmed.</Text>}
+      {detectedAt && <Text style={styles.heroSub}>Detected on the map at {new Date(detectedAt).toLocaleTimeString()}. Open the map to update your location.</Text>}
       <StatusBadge status={carryStatus} />
       {lastCrossedAt && (
         <Text style={styles.heroSub}>Last crossed {timeAgo(lastCrossedAt)}</Text>
       )}
-      <Text style={styles.heroTap}>Tap for full laws →</Text>
+      <Text style={styles.heroTap}>Full {getStateName(stateCode)} laws →</Text>
     </Pressable>
   );
 }
@@ -128,17 +135,27 @@ function LawHighlightCard({ law }: { law: StateLaw }) {
 function TopLawHighlights({ stateCode }: { stateCode: string }) {
   const [laws, setLaws] = useState<StateLaw[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    getTopLawsForState(stateCode, 3).then(data => {
-      setLaws(data);
-      setLoading(false);
-    });
-  }, [stateCode]);
+    let active = true;
+    setLoading(true); setError('');
+    getTopLawsForState(stateCode, 10).then(data => { if(active) setLaws(data); })
+      .catch(() => { if(active) setError('Could not load laws. Tap to retry.'); })
+      .finally(() => { if(active) setLoading(false); });
+    return () => { active=false; };
+  }, [stateCode, retry]);
 
   return (
     <View style={styles.highlightsSection}>
+      <Text style={styles.sectionHeader}>At a glance</Text>
+      <View style={{flexDirection:'row',gap:8,marginBottom:20}}>
+        {([['duty_to_inform','Duty to inform'],['transport','In vehicle'],['magazine','Mag limit']] as const).map(([category,label]) => {
+          const law=laws.find(l => l.category === category);
+          return <View key={category} style={{flex:1,padding:12,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:16,gap:8}}><Text style={{...typography.caption,color:colors.muted}}>{label}</Text><Text style={{...typography.h2,color:colors.white,fontSize:14,lineHeight:20}} numberOfLines={4}>{loading?'Loading…':error?'Unavailable':law?.plain_english ?? 'Not reviewed'}</Text></View>;
+        })}
+      </View>
       <Text style={styles.sectionHeader}>Key Laws</Text>
       {loading ? (
         <>
@@ -146,14 +163,12 @@ function TopLawHighlights({ stateCode }: { stateCode: string }) {
           <SkeletonCard />
           <SkeletonCard />
         </>
+      ) : error ? (
+        <Pressable onPress={() => setRetry(n => n+1)}><Text style={styles.emptyFeedText}>{error}</Text></Pressable>
       ) : laws.length === 0 ? (
-        <>
-          <SkeletonCard />
-          <SkeletonCard />
-          <SkeletonCard />
-        </>
+        <Text style={styles.emptyFeedText}>No current reviewed law summaries are available for this state yet.</Text>
       ) : (
-        laws.map(law => <LawHighlightCard key={law.id} law={law} />)
+        laws.slice(0,3).map(law => <LawHighlightCard key={law.id} law={law} />)
       )}
     </View>
   );
@@ -170,7 +185,7 @@ function CrossingFeed() {
     return (
       <View style={styles.emptyFeed}>
         <Text style={styles.emptyFeedText}>No crossings recorded yet.</Text>
-        <Text style={styles.emptyFeedSub}>Start driving.</Text>
+        <Text style={styles.emptyFeedSub}>History is optional. Enable saving in Profile.</Text>
       </View>
     );
   }
@@ -244,29 +259,34 @@ function DevCrossingSimulator() {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { currentState, isTracking, crossingHistory } = useLocationStore();
-  const { permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
+  const wide = useWindowDimensions().width >= 1000;
+  const { currentState, isTracking, crossingHistory, browserLocation } = useLocationStore();
+  const { userId, homeState, permits, firearmsProfile, subscriptionTier, monthlyAlertCount } = useUserStore();
   const { openPaywall } = useSubscription();
   const [carryStatus, setCarryStatus] = useState<CarryStatus>('unknown');
-  const alertLimitReached = subscriptionTier === 'free' && monthlyAlertCount >= 3;
+  const alertLimitReached = false;
 
-  const lastCrossedAt = crossingHistory[0]?.crossedAt ?? null;
-
-  const refreshCarryStatus = useCallback(async () => {
-    if (!currentState) return;
-    const status = await getCarryStatusForUser(currentState, permits, firearmsProfile);
-    setCarryStatus(status);
-  }, [currentState, permits, firearmsProfile]);
+  const browserFix = Platform.OS === 'web' && browserLocation?.userId === userId ? browserLocation : null;
+  const detectedState = Platform.OS === 'web' ? browserFix?.stateCode ?? null : currentState;
+  const displayState = detectedState ?? homeState;
+  const isHomeState = !detectedState && !!homeState;
+  const lastCrossedAt = currentState ? crossingHistory[0]?.crossedAt ?? null : null;
 
   useEffect(() => {
-    refreshCarryStatus();
-  }, [refreshCarryStatus]);
+    let active = true;
+    setCarryStatus('unknown');
+    if (displayState) void getCarryStatusForUser(displayState, permits, firearmsProfile)
+      .then(status => { if(active) setCarryStatus(status); })
+      .catch(() => { if(active) setCarryStatus('unknown'); });
+    return () => { active=false; };
+  }, [displayState, homeState, permits, firearmsProfile]);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.wordmark}>CROSSLINE</Text>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8,padding:10,borderRadius:18,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border}}><View style={{width:7,height:7,borderRadius:4,backgroundColor:isTracking?colors.success:colors.skyLight}}/><Text style={{...typography.mono,fontSize:11,color:colors.textSecondary}}>{isTracking?'TRACKING':browserFix?'LOCATION DETECTED':'READY TO EXPLORE'}</Text></View>
         <TouchableOpacity
           onPress={() => router.push('/(tabs)/profile')}
           style={styles.settingsButton}
@@ -276,30 +296,29 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Alert limit banner */}
-        {alertLimitReached && (
-          <Pressable style={styles.alertBanner} onPress={openPaywall}>
-            <Text style={styles.alertBannerText}>
-              You've used your 3 free crossing alerts this month.{' '}
-              <Text style={styles.alertBannerLink}>Upgrade to Pro for unlimited alerts →</Text>
-            </Text>
-          </Pressable>
-        )}
-
+      <ScrollView contentContainerStyle={[styles.scroll,{width:'100%',maxWidth:1200,alignSelf:'center'}]} showsVerticalScrollIndicator={false}>
+        <Text style={styles.emptyFeedSub}>Free beta · Reviewed coverage is limited. Verify official sources before acting.</Text>
+        {Platform.OS === 'web' ? <Pressable onPress={() => router.push('/(tabs)/map')}><Text style={styles.heroTap}>See my live location on the map →</Text></Pressable> : !isTracking && <Pressable onPress={() => router.push('/(tabs)/profile')}><Text style={styles.heroTap}>Automatic tracking is off. Manage location in Profile →</Text></Pressable>}
+        <Pressable onPress={() => router.push('/(tabs)/laws')}><Text style={styles.heroTap}>Browse laws by state →</Text></Pressable>
+        <View style={{flexDirection:wide?'row':'column',gap:24,marginTop:20}}>
+        <View style={{flex:wide?1:undefined}}>
         {/* Hero card */}
         <HeroStateCard
-          stateCode={currentState}
+          stateCode={displayState}
+          isHomeState={isHomeState}
+          detectedAt={detectedState && browserFix ? browserFix.timestamp : null}
           carryStatus={carryStatus}
           lastCrossedAt={lastCrossedAt}
         />
 
+        </View><View style={{flex:wide?1:undefined}}>
         {/* Top 3 law highlights */}
-        {currentState && <TopLawHighlights stateCode={currentState} />}
+        {displayState && <TopLawHighlights stateCode={displayState} />}
 
         {/* Crossing history */}
         <Text style={styles.sectionHeader}>Crossing History</Text>
         <CrossingFeed />
+        </View></View>
 
         {/* Dev simulator */}
         {__DEV__ && <DevCrossingSimulator />}
@@ -318,14 +337,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 12,
   },
   wordmark: {
     fontFamily: typography.display.fontFamily,
-    fontSize: 18,
-    color: colors.sky,
-    letterSpacing: 4,
+    fontSize: 14,
+    color: colors.skyLight,
+    letterSpacing: 3.9,
   },
   settingsButton: { padding: 4 },
   settingsIcon: { fontSize: 20, color: colors.silver },
@@ -354,20 +373,20 @@ const styles = StyleSheet.create({
   // Hero card
   heroCard: {
     backgroundColor: colors.steel,
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
+    borderRadius: 28,
+    padding: 22,
+    alignItems: 'stretch',
     marginBottom: 24,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 6,
+    gap: 16,
   },
   heroCardPressed: { opacity: 0.85 },
   heroLabel: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.silver,
-    letterSpacing: 1.5,
+    fontFamily: typography.mono.fontFamily,
+    fontSize: 11,
+    color: colors.muted,
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   heroCode: {
@@ -378,7 +397,8 @@ const styles = StyleSheet.create({
   },
   heroName: {
     fontFamily: typography.h1.fontFamily,
-    fontSize: typography.h1.fontSize,
+    fontSize: 34,
+    letterSpacing: -1,
     color: colors.white,
   },
   heroPlaceholder: {
@@ -406,8 +426,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingVertical: 14,
+    borderRadius: 16,
     borderWidth: 1,
     marginTop: 4,
   },
@@ -420,7 +440,7 @@ const styles = StyleSheet.create({
 
   // Section header
   sectionHeader: {
-    fontFamily: typography.h2.fontFamily,
+    fontFamily: typography.mono.fontFamily,
     fontSize: 11,
     color: colors.silver,
     letterSpacing: 1.2,
@@ -432,7 +452,7 @@ const styles = StyleSheet.create({
   highlightsSection: { marginBottom: 28 },
   lawCard: {
     backgroundColor: colors.steel,
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
@@ -463,7 +483,7 @@ const styles = StyleSheet.create({
   // Skeleton
   skeletonCard: {
     backgroundColor: colors.steel,
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
@@ -523,7 +543,7 @@ const styles = StyleSheet.create({
   devPanel: {
     marginTop: 16,
     backgroundColor: '#1a0a2e',
-    borderRadius: 12,
+    borderRadius: 20,
     padding: 16,
     borderWidth: 1,
     borderColor: '#6b21a8',

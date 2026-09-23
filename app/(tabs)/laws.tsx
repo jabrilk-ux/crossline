@@ -1,6 +1,8 @@
+import LegalReferenceCard from '../../components/LegalReferenceCard';
+import type { CarryRule } from '../../services/carryRules';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable,
+  View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, Platform,
   TouchableOpacity, TextInput, Modal, FlatList, Linking,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -10,7 +12,7 @@ import { useUserStore } from '../../store/userStore';
 import { STATES } from '../../constants/states';
 import {
   getLawsForState,
-  getCarryStatusForUser,
+  getCarryGuidanceForUser,
   type StateLaw,
   type LawCategory,
 } from '../../services/laws';
@@ -66,13 +68,14 @@ function StateSelectorSheet({
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType={Platform.OS === 'web' ? 'none' : 'slide'} transparent onRequestClose={onClose}>
       <View style={sheet.overlay}>
         <View style={sheet.container}>
           <View style={sheet.handle} />
-          <Text style={sheet.title}>Select State</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><Text style={sheet.title}>Select State</Text><Pressable accessibilityRole="button" accessibilityLabel="Close state selector" onPress={onClose} style={{ padding: 12 }}><Text style={{ color: colors.silver, fontSize: 24 }}>×</Text></Pressable></View>
           <TextInput
             style={sheet.search}
+            accessibilityLabel="Search law states"
             placeholder="Search states..."
             placeholderTextColor={colors.silver}
             value={query}
@@ -84,6 +87,8 @@ function StateSelectorSheet({
             keyExtractor={item => item.code}
             renderItem={({ item }) => (
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`View ${item.name} laws`}
                 style={[sheet.stateRow, item.code === selectedCode && sheet.stateRowSelected]}
                 onPress={() => { onSelect(item.code); onClose(); setQuery(''); }}
               >
@@ -119,10 +124,10 @@ function CarryStatusBanner({
   const permitLabel = permitType ?? 'Your permit';
 
   const summaries: Record<CarryStatus, string> = {
-    allowed:    `${permitLabel} is honored in ${stateName}. Carry is permitted.`,
-    restricted: `${permitLabel} is honored but ${stateName} has specific restrictions.`,
-    prohibited: `${permitLabel} is not recognized in ${stateName}.`,
-    unknown:    `Carry status for ${stateName} is pending verification.`,
+    allowed:    `Reviewed guidance matches your saved profile in ${stateName}. Review all conditions and official sources.`,
+    restricted: `Reviewed restrictions apply to your saved profile in ${stateName}.`,
+    prohibited: `Reviewed guidance indicates a restriction for your saved profile in ${stateName}.`,
+    unknown:    `Unable to determine your carry status in ${stateName}. Your profile may be incomplete, or reviewed rules may be unavailable.`,
   };
 
   return (
@@ -145,6 +150,7 @@ function CategoryTabs({
   return (
     <ScrollView
       horizontal
+      style={{flexGrow:0,flexShrink:0,height:56}}
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={tabs.container}
     >
@@ -201,10 +207,10 @@ function LawDetailCard({ law }: { law: StateLaw }) {
 
 export default function LawsScreen() {
   const params = useLocalSearchParams<{ state?: string; category?: string }>();
-  const { currentState } = useLocationStore();
-  const { permits, firearmsProfile } = useUserStore();
+  const { currentState, browserLocation } = useLocationStore();
+  const { permits, firearmsProfile, homeState, userId } = useUserStore();
 
-  const initialState = params.state ?? currentState ?? 'VA';
+  const initialState = params.state ?? (browserLocation?.userId === userId ? browserLocation?.stateCode : null) ?? currentState ?? homeState ?? 'VA';
   const initialCategory = (params.category as LawCategory | undefined) ?? 'carry';
 
   const [selectedState, setSelectedState] = useState(initialState);
@@ -212,6 +218,8 @@ export default function LawsScreen() {
   const [sheetVisible, setSheetVisible] = useState(false);
   const [laws, setLaws] = useState<StateLaw[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [rules, setRules] = useState<CarryRule[]>([]);
   const [carryStatus, setCarryStatus] = useState<CarryStatus>('unknown');
 
   // Re-seed from params when deep-linked (e.g. notification tap)
@@ -220,18 +228,16 @@ export default function LawsScreen() {
     if (params.category) setSelectedCategory(params.category as LawCategory);
   }, [params.state, params.category]);
 
-  const loadLaws = useCallback(async () => {
-    setLoading(true);
-    const [data, status] = await Promise.all([
-      getLawsForState(selectedState, [selectedCategory]),
-      getCarryStatusForUser(selectedState, permits, firearmsProfile),
-    ]);
-    setLaws(data);
-    setCarryStatus(status);
-    setLoading(false);
-  }, [selectedState, selectedCategory, permits, firearmsProfile]);
-
-  useEffect(() => { loadLaws(); }, [loadLaws]);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setLoading(true); setError(''); setRules([]); setCarryStatus('unknown');
+    Promise.all([getLawsForState(selectedState, [selectedCategory]), getCarryGuidanceForUser(selectedState, permits, firearmsProfile)])
+      .then(([data,status]) => { if(active) { setLaws(data); setCarryStatus(status.status); setRules(status.rules); } })
+      .catch(() => { if(active) { setLaws([]); setError('Could not load laws. Check your connection and tap to retry.'); } })
+      .finally(() => { if(active) setLoading(false); });
+    return () => { active=false; };
+  }, [selectedState, selectedCategory, permits, firearmsProfile, retry]);
 
   const stateName = STATES.find(s => s.code === selectedState)?.name ?? selectedState;
   const primaryPermit = permits.find(p => p.stateCode === selectedState);
@@ -248,13 +254,16 @@ export default function LawsScreen() {
       {/* State selector header */}
       <View style={ls.header}>
         <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Change law state"
           style={ls.stateSelector}
           onPress={() => setSheetVisible(true)}
           activeOpacity={0.8}
         >
-          <View>
+          <View style={{width:48,height:48,borderRadius:14,backgroundColor:colors.surfaceRaised,alignItems:'center',justifyContent:'center',marginRight:12}}><Text style={{...typography.mono,color:colors.white}}>{selectedState}</Text></View>
+          <View style={{flex:1}}>
             <Text style={ls.stateSelectorLabel}>State Laws</Text>
-            <Text style={ls.stateSelectorName}>{stateName}</Text>
+            <Text style={ls.stateSelectorName}>{stateName}</Text><Text style={{...typography.caption,color:colors.skyLight,marginTop:4}}>Change state ▾</Text>
           </View>
           <Text style={ls.stateSelectorChevron}>▾</Text>
         </TouchableOpacity>
@@ -272,14 +281,20 @@ export default function LawsScreen() {
 
       {/* Law detail cards */}
       <ScrollView contentContainerStyle={ls.scroll} showsVerticalScrollIndicator={false}>
+        <LegalReferenceCard key={selectedState} stateCode={selectedState} compact />
+        {!loading && rules.map((rule, i) => <View key={i} style={{ marginBottom: 16, padding: 14, backgroundColor: colors.steel, borderRadius: 16 }}>
+          <Text style={{ color: colors.white, marginBottom: 8 }}>{rule.explanation}</Text>
+          <Text style={{ color: colors.silver }}>Scope: {rule.firearm_type} · {rule.carry_purpose} · {rule.permitless ? 'permitless rule' : `${rule.permit_state} ${rule.permit_type} permit`}. Effective {rule.effective_date} through {rule.expires_on}.</Text>
+          <TouchableOpacity onPress={() => { void Linking.openURL(rule.source_url).catch(() => {}); }}><Text style={{ color: colors.sky, marginTop: 8 }}>Review rule source →</Text></TouchableOpacity>
+        </View>)}
         {loading ? (
           <View style={ls.pending}>
             <Text style={ls.pendingText}>Loading...</Text>
           </View>
-        ) : categoryLaws.length === 0 ? (
+        ) : error ? (<TouchableOpacity onPress={() => setRetry(n => n+1)}><Text style={ls.pendingText}>{error}</Text></TouchableOpacity>) : categoryLaws.length === 0 ? (
           <View style={ls.pending}>
             <Text style={ls.pendingText}>
-              Law data for this category is pending verification. Check back soon.
+              No reviewed summary is available for this category. The state references above are research notes and do not establish your carry status.
             </Text>
           </View>
         ) : (
@@ -301,10 +316,10 @@ export default function LawsScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const ls = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.navy },
+  container: { flex: 1, backgroundColor: colors.navy, width:'100%',maxWidth:1000,alignSelf:'center' },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 24,
     paddingBottom: 12,
   },
   stateSelector: {
@@ -348,7 +363,7 @@ const banner = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 4,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
   },
   dot: { width: 8, height: 8, borderRadius: 4, marginTop: 4, flexShrink: 0 },
@@ -364,7 +379,8 @@ const tabs = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
   tab: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
+    minHeight:36,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
@@ -384,7 +400,7 @@ const tabs = StyleSheet.create({
 const card = StyleSheet.create({
   container: {
     backgroundColor: colors.steel,
-    borderRadius: 14,
+    borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
@@ -431,12 +447,17 @@ const sheet = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: '#00000088',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    padding: 16,
   },
   container: {
     backgroundColor: colors.navy,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 32,
@@ -458,7 +479,7 @@ const sheet = StyleSheet.create({
   },
   search: {
     backgroundColor: colors.steel,
-    borderRadius: 10,
+    borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontFamily: typography.body.fontFamily,
@@ -468,7 +489,7 @@ const sheet = StyleSheet.create({
     borderColor: colors.border,
     marginBottom: 8,
   },
-  list: { flex: 1 },
+  list: { flexGrow: 0, flexShrink: 1 },
   stateRow: {
     flexDirection: 'row',
     alignItems: 'center',

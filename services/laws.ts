@@ -1,3 +1,5 @@
+import { evaluateCarryRules, matchingCarryRules, type CarryRule } from './carryRules';
+import { useUserStore } from '../store/userStore';
 import { supabase } from './supabase';
 import type { FirearmsProfile, Permit } from '../store/userStore';
 import type { CarryStatus } from './notifications';
@@ -68,7 +70,7 @@ export async function getLawsForState(
   const { data, error } = await query;
   if (error) {
     if (__DEV__) console.warn('[laws] getLawsForState error:', error.message);
-    return [];
+    throw new Error('Could not load reviewed laws. Check your connection and retry.');
   }
   return (data ?? []) as StateLaw[];
 }
@@ -87,7 +89,8 @@ export async function getTopLawsForState(
     .eq('state_code', stateCode)
     .order('updated_at', { ascending: false });
 
-  if (error || !data) return [];
+  if (error) throw new Error('Could not load reviewed laws. Check your connection and retry.');
+  if (!data) return [];
 
   const laws = data as StateLaw[];
 
@@ -130,66 +133,23 @@ export async function getTopLawsForState(
  *   - If no carry data at all → unknown
  */
 export async function getCarryStatusForUser(
-  stateCode: string,
-  permits: Permit[],
-  _firearmsProfile: FirearmsProfile
+  stateCode: string, permits: Permit[], firearmsProfile: FirearmsProfile
 ): Promise<CarryStatus> {
-  const { data, error } = await supabase
-    .from('state_laws')
-    .select('carry_status, permit_filter')
-    .eq('state_code', stateCode)
-    .eq('category', 'carry')
-    .not('carry_status', 'is', null)
-    .order('updated_at', { ascending: false })
-    .limit(10);
+  const { data, error } = await supabase.from('carry_rules').select('*').eq('state_code', stateCode);
+  if (error) return 'unknown';
+  return evaluateCarryRules((data ?? []) as CarryRule[], stateCode, useUserStore.getState().homeState, permits, firearmsProfile);
+}
 
-  if (error || !data || data.length === 0) return 'unknown';
+export async function getCarryStatusesForUser(states: string[], permits: Permit[], profile: FirearmsProfile): Promise<Record<string, CarryStatus>> {
+  const { data, error } = await supabase.from('carry_rules').select('*').in('state_code', states);
+  const home = useUserStore.getState().homeState;
+  return Object.fromEntries(states.map(state => [state, error ? 'unknown' : evaluateCarryRules((data ?? []) as CarryRule[], state, home, permits, profile)]));
+}
 
-  // Build permit type sets for this state.
-  // A permit "applies" if it is issued for this state (resident or non-resident)
-  // OR if it is a resident permit from the user's home state (reciprocity case).
-  const hasResidentPermit = permits.some(
-    p => p.stateCode === stateCode && p.permitType === 'resident'
-  );
-  const hasNonResidentPermit = permits.some(
-    p => p.stateCode === stateCode && p.permitType === 'non-resident'
-  );
-  // Any resident permit from any state counts for permitless / broad reciprocity checks
-  const hasAnyResidentPermit = permits.some(p => p.permitType === 'resident');
-
-  function rowMatchesUser(filters: string[]): boolean {
-    if (filters.length === 0) return true;
-    if (filters.includes('permitless')) return true;
-    if (filters.includes('resident') && (hasResidentPermit || hasAnyResidentPermit)) return true;
-    if (filters.includes('non-resident') && hasNonResidentPermit) return true;
-    return false;
-  }
-
-  // Separate rows by whether they match the user's actual permit stack
-  const matchingRows = data.filter(r => rowMatchesUser(r.permit_filter ?? []));
-  const nonMatchingRows = data.filter(r => !rowMatchesUser(r.permit_filter ?? []));
-
-  // 1. If user has a matching row that is allowed or restricted, use it.
-  //    Resident rows take priority — evaluate them first.
-  const residentFirst = [...matchingRows].sort((a, b) => {
-    const aRes = (a.permit_filter ?? []).includes('resident') ? 0 : 1;
-    const bRes = (b.permit_filter ?? []).includes('resident') ? 0 : 1;
-    return aRes - bRes;
-  });
-
-  for (const row of residentFirst) {
-    if (row.carry_status === 'allowed' || row.carry_status === 'restricted') {
-      return row.carry_status as CarryStatus;
-    }
-  }
-
-  // 2. If matching rows only returned prohibited, honour that.
-  if (matchingRows.some(r => r.carry_status === 'prohibited')) return 'prohibited';
-
-  // 3. No matching rows — check if a prohibited row exists for non-matching
-  //    permit types (e.g. non-resident row when user has no non-resident permit).
-  //    Only surface prohibited if ALL rows prohibit and none allow.
-  if (nonMatchingRows.length > 0 && matchingRows.length === 0) return 'prohibited';
-
-  return 'unknown';
+export async function getCarryGuidanceForUser(state: string, permits: Permit[], profile: FirearmsProfile) {
+  const { data, error } = await supabase.from('carry_rules').select('*').eq('state_code', state);
+  if (error) throw new Error('Could not load reviewed rules.');
+  const home = useUserStore.getState().homeState;
+  const rules = (data ?? []) as CarryRule[];
+  return { status: evaluateCarryRules(rules, state, home, permits, profile), rules: matchingCarryRules(rules, state, home, permits, profile) };
 }

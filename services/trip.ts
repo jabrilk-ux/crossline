@@ -1,5 +1,4 @@
-import * as turf from '@turf/turf';
-import { detectStateFromCoords } from './geofence';
+import { statesAlongGeometry } from './routeGeometry';
 import { getLawsForState, getCarryStatusForUser, type StateLaw } from './laws';
 import { getStateName } from '../constants/states';
 import type { Permit, FirearmsProfile } from '../store/userStore';
@@ -24,7 +23,6 @@ export interface TripState {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const OPENCAGE_API_KEY = process.env.EXPO_PUBLIC_OPENCAGE_API_KEY ?? '';
-const SAMPLE_POINTS = 100;
 
 // ─── Geocoding ────────────────────────────────────────────────────────────────
 
@@ -75,45 +73,24 @@ export async function geocodeAddress(query: string): Promise<GeocodedLocation[]>
 
 /**
  * getStatesAlongRoute()
- * Draws a straight line between origin and destination, samples SAMPLE_POINTS
- * evenly spaced points along it, and returns the ordered, deduplicated list
- * of state codes the route passes through.
+ * Intersects the configured provider’s full driving geometry with state boundaries.
+ * Preserves re-entry and reports gaps in the bundled boundary coverage.
  */
-export function getStatesAlongRoute(
-  origin: { lat: number; lng: number },
-  destination: { lat: number; lng: number }
-): string[] {
-  const line = turf.lineString([
-    [origin.lng, origin.lat],
-    [destination.lng, destination.lat],
-  ]);
-
-  const totalLength = turf.length(line, { units: 'kilometers' });
-  const step = totalLength / (SAMPLE_POINTS - 1);
-
-  const stateCodes: string[] = [];
-  let lastSeen: string | null = null;
-
-  for (let i = 0; i < SAMPLE_POINTS; i++) {
-    const dist = i * step;
-    const pt = turf.along(line, dist, { units: 'kilometers' });
-    const [lng, lat] = pt.geometry.coordinates;
-    const code = detectStateFromCoords(lat, lng);
-
-    if (code && code !== lastSeen) {
-      if (!stateCodes.includes(code)) {
-        stateCodes.push(code);
-      } else if (stateCodes[stateCodes.length - 1] !== code) {
-        // Re-entering a state after crossing another (e.g. panhandle) — append again
-        stateCodes.push(code);
-      }
-      lastSeen = code;
-    } else if (!code) {
-      lastSeen = null;
-    }
-  }
-
-  return stateCodes;
+export const drivingRoutesConfigured = Boolean(process.env.EXPO_PUBLIC_ROUTING_URL && OPENCAGE_API_KEY);
+export async function getStatesAlongRoute(
+  origin: { lat: number; lng: number }, destination: { lat: number; lng: number }
+): Promise<{ states: string[]; hasUnmappedSections: boolean }> {
+  const base = process.env.EXPO_PUBLIC_ROUTING_URL;
+  if (!base || !base.startsWith('https://')) throw new Error('Driving directions are not configured. Use manual state planning.');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
+  try {
+    const response = await fetch(`${base.replace(/\/$/, '')}/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=false`, { signal: controller.signal });
+    if (!response.ok) throw new Error('Directions are unavailable. Please retry.');
+    const result = await response.json();
+    if (result.code !== 'Ok' || !Array.isArray(result.routes?.[0]?.geometry?.coordinates)) throw new Error('No driving route found.');
+    return statesAlongGeometry(result.routes[0].geometry.coordinates);
+  } finally { clearTimeout(timeout); }
 }
 
 // ─── Entry warning ────────────────────────────────────────────────────────────
@@ -128,7 +105,7 @@ export function generateEntryWarning(
   carryStatus: CarryStatus
 ): string | null {
   if (carryStatus === 'prohibited') {
-    return 'Your permit is not recognized here. Secure your firearm before entering.';
+    return 'Reviewed guidance indicates a restriction for your saved profile. Review the official sources before entering.';
   }
 
   if (carryStatus === 'restricted') {

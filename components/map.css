@@ -1,0 +1,20 @@
+.crossline-map-shell { position: relative; isolation: isolate; overflow: hidden; border-radius: 22px; border: 1px solid #1f3656; }
+.crossline-street-map { width: 100%; height: clamp(400px, 62vh, 800px); background: #dae4e9; font-family: Geist_400Regular, sans-serif; }
+.crossline-street-map .leaflet-control-zoom { border: 1px solid #becdd6; border-radius: 12px; overflow: hidden; box-shadow: 0 3px 12px #0a162820; }
+.crossline-street-map .leaflet-control-zoom a { width: 44px; height: 44px; line-height: 44px; color: #0a1628; }
+.crossline-street-map .leaflet-control-attribution { padding: 4px 8px; background: #fffffff2; color: #24354a; }
+.crossline-street-map .leaflet-control-attribution a { color: #175583; }
+.crossline-location { display: grid; place-items: center; background: transparent; }
+.crossline-location span { box-sizing: border-box; display: block; width: 20px; height: 20px; border: 3px solid white; border-radius: 50%; background: #1687ef; box-shadow: 0 0 0 6px #1687ef26, 0 2px 8px #163a6766; }
+.crossline-location.is-stale span { background: #64748b; box-shadow: 0 0 0 5px #64748b26; }
+.crossline-tile-error { position: absolute; z-index: 1000; top: 12px; left: 12px; right: 72px; background: #fff; color: #24354a; border-radius: 12px; padding: 12px; font-size: 13px; box-shadow: 0 2px 8px #0002; }
+.crossline-tile-error button { color: #175583; background: none; border: 0; padding: 8px; cursor: pointer; text-decoration: underline; }
+.crossline-map-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.crossline-map-page button, .crossline-map-page select { font: inherit; min-height: 44px; border: 1px solid #35516e; border-radius: 12px; background: #152a47; color: #f2f6fb; padding: 10px 14px; cursor: pointer; max-width: 100%; transition: background-color 150ms, transform 150ms; }
+.crossline-map-page button:hover, .crossline-map-page select:hover { background: #214061; }
+.crossline-map-page button:active { transform: scale(.97); }
+.crossline-map-page button:focus-visible, .crossline-map-page select:focus-visible { outline: 2px solid #85c7ff; outline-offset: 3px; }
+.crossline-map-page .crossline-locate { background: #2d6a9f; border-color: #5b9bd5; }
+.crossline-map-page .crossline-map-link { color: #8cc8fc; }
+@media (prefers-reduced-motion: reduce) { .crossline-map-page button, .crossline-map-page select { transition: none; } }
+@media (max-width: 600px) { .crossline-street-map { height: 52vh; min-height: 350px; } .crossline-map-controls select { flex: 1; min-width: 120px; } }

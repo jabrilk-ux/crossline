@@ -1,767 +1,93 @@
-import { useState, useRef, useCallback } from 'react';
-import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView, TextInput,
-  TouchableOpacity, FlatList, ActivityIndicator, Pressable,
-  KeyboardAvoidingView, Platform, Keyboard,
-} from 'react-native';
+import Button from '../../components/ActionButton';
+import TripStatePicker from '../../components/TripStatePicker';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { colors, typography, statusColors } from '../../constants/theme';
+import { getLegalReference } from '../../services/legalReferences';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, Text, TextInput, View, Linking, Pressable } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { buildTripBriefing, getStatesAlongRoute, geocodeAddress, drivingRoutesConfigured, type GeocodedLocation, type TripState } from '../../services/trip';
 import { useUserStore } from '../../store/userStore';
-import { useSubscription } from '../../hooks/useSubscription';
-import {
-  geocodeAddress, getStatesAlongRoute, buildTripBriefing,
-  type GeocodedLocation, type TripState,
-} from '../../services/trip';
-import type { StateLaw } from '../../services/laws';
-import type { CarryStatus } from '../../services/notifications';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface LockedLocation extends GeocodedLocation {
-  locked: boolean;
-}
-
-// ─── Category labels ──────────────────────────────────────────────────────────
-
-const CATEGORY_LABELS: Record<string, string> = {
-  carry: 'Carry',
-  reciprocity: 'Reciprocity',
-  duty_to_inform: 'Duty to Inform',
-  prohibited_locations: 'Prohibited Locations',
-  transport: 'Transport',
-  magazine: 'Magazine Limits',
-  ammo: 'Ammunition',
-  use_of_force: 'Use of Force',
-  red_flag: 'Red Flag',
-  storage: 'Storage',
-};
-
-// ─── StatusBadge ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: CarryStatus }) {
-  const labels: Record<CarryStatus, string> = {
-    allowed: 'Carry Permitted',
-    restricted: 'Restrictions Apply',
-    prohibited: 'Carry Not Permitted',
-    unknown: 'Status Unknown',
-  };
-  return (
-    <View style={[
-      badge.container,
-      { backgroundColor: statusColors[status] + '22', borderColor: statusColors[status] },
-    ]}>
-      <View style={[badge.dot, { backgroundColor: statusColors[status] }]} />
-      <Text style={[badge.text, { color: statusColors[status] }]}>{labels[status]}</Text>
-    </View>
-  );
-}
-
-const badge = StyleSheet.create({
-  container: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 20, borderWidth: 1,
-  },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  text: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-  },
-});
-
-// ─── Law card (compact) ───────────────────────────────────────────────────────
-
-function LawCard({ law, stateCode }: { law: StateLaw; stateCode: string }) {
-  const router = useRouter();
-  return (
-    <Pressable
-      style={({ pressed }) => [lawCard.container, pressed && lawCard.pressed]}
-      onPress={() => router.push(`/(tabs)/laws?state=${stateCode}&category=${law.category}`)}
-    >
-      <View style={lawCard.header}>
-        <Text style={lawCard.category}>{CATEGORY_LABELS[law.category] ?? law.category}</Text>
-        <Text style={lawCard.chevron}>›</Text>
-      </View>
-      <Text style={lawCard.summary} numberOfLines={2}>{law.plain_english}</Text>
-    </Pressable>
-  );
-}
-
-const lawCard = StyleSheet.create({
-  container: {
-    backgroundColor: colors.navy,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: colors.border + '55',
-  },
-  pressed: { opacity: 0.75 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  category: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.skyLight,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  chevron: { color: colors.silver, fontSize: 16 },
-  summary: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: 14,
-    color: colors.white,
-    lineHeight: 20,
-  },
-});
-
-// ─── State briefing card ──────────────────────────────────────────────────────
-
-function StateBriefingCard({
-  tripState,
-  index,
-}: {
-  tripState: TripState;
-  index: number;
-}) {
-  const router = useRouter();
-  const hasWarning = tripState.entryWarning !== null;
-  const warningBg =
-    tripState.carryStatus === 'prohibited' ? colors.danger + '22' :
-    tripState.carryStatus === 'restricted' ? colors.warning + '22' :
-    colors.silver + '22';
-  const warningBorder =
-    tripState.carryStatus === 'prohibited' ? colors.danger + '88' :
-    tripState.carryStatus === 'restricted' ? colors.warning + '88' :
-    colors.silver + '44';
-
-  return (
-    <View style={stateCard.container}>
-      {/* Index badge + state header */}
-      <View style={stateCard.header}>
-        <View style={stateCard.indexBadge}>
-          <Text style={stateCard.indexText}>{index + 1}</Text>
-        </View>
-        <View style={stateCard.titleGroup}>
-          <Text style={stateCard.stateName}>{tripState.stateName}</Text>
-          <Text style={stateCard.stateCode}>{tripState.stateCode}</Text>
-        </View>
-      </View>
-
-      <StatusBadge status={tripState.carryStatus} />
-
-      {/* Entry warning banner */}
-      {hasWarning && (
-        <View style={[stateCard.warningBanner, { backgroundColor: warningBg, borderColor: warningBorder }]}>
-          <Text style={stateCard.warningIcon}>
-            {tripState.carryStatus === 'prohibited' ? '⛔' :
-             tripState.carryStatus === 'restricted' ? '⚠️' : 'ℹ️'}
-          </Text>
-          <Text style={stateCard.warningText}>{tripState.entryWarning}</Text>
-        </View>
-      )}
-
-      {/* Key laws */}
-      {tripState.keyLaws.length > 0 ? (
-        <View style={stateCard.laws}>
-          {tripState.keyLaws.map(law => (
-            <LawCard key={law.id} law={law} stateCode={tripState.stateCode} />
-          ))}
-        </View>
-      ) : (
-        <View style={stateCard.noData}>
-          <Text style={stateCard.noDataText}>No law data available yet.</Text>
-        </View>
-      )}
-
-      {/* View full laws link */}
-      <TouchableOpacity
-        style={stateCard.fullLawsBtn}
-        onPress={() => router.push(`/(tabs)/laws?state=${tripState.stateCode}`)}
-        activeOpacity={0.75}
-      >
-        <Text style={stateCard.fullLawsText}>View full {tripState.stateName} laws →</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-const stateCard = StyleSheet.create({
-  container: {
-    backgroundColor: colors.steel,
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border + '66',
-    gap: 12,
-  },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  indexBadge: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: colors.sky + '33',
-    borderWidth: 1, borderColor: colors.sky + '66',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  indexText: {
-    fontFamily: typography.mono.fontFamily,
-    fontSize: 13,
-    color: colors.sky,
-    fontWeight: '700',
-  },
-  titleGroup: { flex: 1 },
-  stateName: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: typography.h2.fontSize,
-    color: colors.white,
-  },
-  stateCode: {
-    fontFamily: typography.mono.fontFamily,
-    fontSize: typography.mono.fontSize,
-    color: colors.silver,
-    marginTop: 1,
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  warningIcon: { fontSize: 14, lineHeight: 20 },
-  warningText: {
-    flex: 1,
-    fontFamily: typography.body.fontFamily,
-    fontSize: 13,
-    color: colors.white,
-    lineHeight: 19,
-  },
-  laws: { gap: 0 },
-  noData: {
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  noDataText: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.silver,
-  },
-  fullLawsBtn: {
-    paddingTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border + '33',
-    marginTop: 4,
-  },
-  fullLawsText: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.skyLight,
-    textAlign: 'right',
-  },
-});
-
-// ─── Location input with dropdown ─────────────────────────────────────────────
-
-function LocationInput({
-  placeholder,
-  value,
-  locked,
-  onSelect,
-  onClear,
-}: {
-  placeholder: string;
-  value: string;
-  locked: boolean;
-  onSelect: (loc: GeocodedLocation) => void;
-  onClear: () => void;
-}) {
-  const [text, setText] = useState(value);
+import { STATES, getStateName } from '../../constants/states';
+import { colors, typography } from '../../constants/theme';
+interface SavedTrip { savedAt: string; states: TripState[]; mode: 'manual' | 'driving'; routeWarning?: string }
+function Address({ label, onSelect }: { label: string; onSelect: (v: GeocodedLocation | null) => void }) {
+  const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeocodedLocation[]>([]);
-  const [searching, setSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleChange = useCallback((input: string) => {
-    setText(input);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (input.length < 3) { setResults([]); return; }
-
-    debounceRef.current = setTimeout(async () => {
-      setSearching(true);
-      const found = await geocodeAddress(input);
-      setSearching(false);
-      setResults(found);
-    }, 400);
-  }, []);
-
-  const handleSelect = useCallback((loc: GeocodedLocation) => {
-    setText(loc.label);
-    setResults([]);
-    Keyboard.dismiss();
-    onSelect(loc);
-  }, [onSelect]);
-
-  const handleClear = useCallback(() => {
-    setText('');
-    setResults([]);
-    onClear();
-  }, [onClear]);
-
-  return (
-    <View>
-      <View style={input.row}>
-        <TextInput
-          style={[input.field, locked && input.fieldLocked]}
-          placeholder={placeholder}
-          placeholderTextColor={colors.silver}
-          value={locked ? value : text}
-          onChangeText={locked ? undefined : handleChange}
-          editable={!locked}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-        {locked ? (
-          <TouchableOpacity style={input.clearBtn} onPress={handleClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Text style={input.clearText}>✕</Text>
-          </TouchableOpacity>
-        ) : searching ? (
-          <ActivityIndicator style={input.spinner} color={colors.silver} size="small" />
-        ) : null}
-      </View>
-
-      {!locked && results.length > 0 && (
-        <View style={input.dropdown}>
-          {results.map((loc, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[input.dropdownRow, i < results.length - 1 && input.dropdownDivider]}
-              onPress={() => handleSelect(loc)}
-              activeOpacity={0.75}
-            >
-              <Text style={input.dropdownText} numberOfLines={2}>{loc.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-    </View>
-  );
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  return <View style={{ gap: 8 }}><TextInput accessibilityLabel={label} value={query} onChangeText={v => { setQuery(v); onSelect(null); setResults([]); }} placeholder={label} placeholderTextColor={colors.silver} style={{ color: colors.white, backgroundColor: colors.surface, borderRadius:16, borderWidth:1,borderColor:colors.border,padding: 16 }} />
+    <Button title={`Find ${label.toLowerCase()}`} disabled={busy || query.trim().length < 3} onPress={() => { setBusy(true); setMessage(''); void geocodeAddress(query).then(r => { setResults(r); if (!r.length) setMessage('No results, or search is unavailable. Retry or use manual planning.'); }).catch(() => setMessage('Address search failed. Retry.')).finally(() => setBusy(false)); }} />
+    {results.map((r,i) => <Button key={i} title={r.label} onPress={() => { setQuery(r.label); setResults([]); onSelect(r); }} />)}
+    {message ? <Text style={{ color: colors.silver }}>{message}</Text> : null}
+  </View>;
 }
-
-const input = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.steel,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border + '66',
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-    marginBottom: 8,
-  },
-  field: {
-    flex: 1,
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: colors.white,
-    paddingVertical: 12,
-  },
-  fieldLocked: { color: colors.skyLight },
-  clearBtn: { padding: 4 },
-  clearText: { color: colors.silver, fontSize: 14 },
-  spinner: { marginLeft: 8 },
-  dropdown: {
-    backgroundColor: colors.steel,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border + '66',
-    marginTop: -4,
-    marginBottom: 8,
-    overflow: 'hidden',
-  },
-  dropdownRow: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  dropdownDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border + '44',
-  },
-  dropdownText: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: 14,
-    color: colors.white,
-  },
-});
-
-// ─── Route pill row ───────────────────────────────────────────────────────────
-
-function RoutePillRow({
-  states,
-  onPillPress,
-}: {
-  states: TripState[];
-  onPillPress: (index: number) => void;
-}) {
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={pills.row}
-      style={pills.scroll}
-    >
-      {states.map((s, i) => (
-        <TouchableOpacity
-          key={s.stateCode + i}
-          style={[pills.pill, { borderColor: statusColors[s.carryStatus] + '88' }]}
-          onPress={() => onPillPress(i)}
-          activeOpacity={0.75}
-        >
-          <View style={[pills.dot, { backgroundColor: statusColors[s.carryStatus] }]} />
-          <Text style={pills.code}>{s.stateCode}</Text>
-        </TouchableOpacity>
-      ))}
-    </ScrollView>
-  );
+export default function Trip() {
+  const router = useRouter();
+  const { userId, permits, firearmsProfile } = useUserStore();
+  const [mode, setMode] = useState<'manual' | 'driving'>('manual');
+  const [codes, setCodes] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [codeEntry, setCodeEntry] = useState(false);
+  const routeCodes = codes.toUpperCase().split(/[\s,>]+/).filter(Boolean);
+  function updateRoute(states: string[]) { setCodes(states.join(', ')); setTrip(null); setMessage(''); setOffline(false); }
+  function moveStop(index: number, direction: number) { const list = [...routeCodes]; [list[index], list[index + direction]] = [list[index + direction], list[index]]; updateRoute(list); }
+  const [origin, setOrigin] = useState<GeocodedLocation | null>(null);
+  const [destination, setDestination] = useState<GeocodedLocation | null>(null);
+  const [trip, setTrip] = useState<SavedTrip | null>(null);
+  const [saved, setSaved] = useState<SavedTrip | null>(null);
+  const [offline, setOffline] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const key = `crossline:trip:${userId}:latest`;
+  useEffect(() => { let active=true; void AsyncStorage.getItem(key).then(raw => { if(active) setSaved(raw ? JSON.parse(raw) : null); }).catch(() => setMessage('Saved trip could not be loaded.')); return ()=>{active=false;}; }, [key]);
+  async function plan() {
+    setBusy(true); setMessage(''); setTrip(null); setOffline(false);
+    try {
+      let states: string[];
+      let routeWarning: string | undefined;
+      if (mode === 'manual') {
+        states=codes.toUpperCase().split(/[\s,>]+/).filter(Boolean);
+        if (!states.length || states.length > 30 || states.some(c => !STATES.some(s => s.code === c))) throw new Error('Enter up to 30 valid state codes, in travel order, such as VA, MD, PA.');
+      } else {
+        if (!origin || !destination) throw new Error('Select both addresses from search results.');
+        const route = await getStatesAlongRoute(origin,destination);
+        states = route.states;
+        if (route.hasUnmappedSections) routeWarning = 'Some route sections are outside the bundled U.S. state boundaries. This list may be incomplete; verify every jurisdiction on the actual route.';
+      }
+      const briefing=await buildTripBriefing(states,permits,firearmsProfile);
+      setTrip({ savedAt: new Date().toISOString(), states: briefing, mode, routeWarning });
+    } catch(e) { setMessage(e instanceof Error ? e.message : 'Could not plan this trip. Check your connection.'); }
+    finally { setBusy(false); }
+  }
+  return <ScrollView style={{ backgroundColor: colors.navy }} contentContainerStyle={{ padding: 24, paddingTop: 32, gap: 18, width:'100%',maxWidth:1000,alignSelf:'center' }}>
+    <Text style={{ ...typography.h1, color: colors.white }}>Trip planner</Text>
+    <Text style={{ ...typography.body, color: colors.muted, lineHeight: 24 }}>Build your route, state by state. We’ll gather the available guidance into one brief you can save for the road.</Text>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}><Button title="Choose states" disabled={busy} onPress={() => { setMode('manual'); setPickerOpen(true); }} />{drivingRoutesConfigured && <Button variant="secondary" title="Driving route" disabled={busy} onPress={() => { setMode('driving'); setTrip(null); }} />}</View>
+    {mode === 'manual' ? <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 22, padding: 20, gap: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Text style={{ ...typography.h2, color: colors.white }}>Your route</Text><Text style={{ ...typography.caption, color: colors.muted }}>{routeCodes.length} {routeCodes.length === 1 ? 'stop' : 'stops'}</Text></View>
+      {!routeCodes.length && <Pressable accessibilityRole="button" accessibilityLabel="Add your starting state" onPress={() => setPickerOpen(true)} style={({ pressed }) => ({ padding: 28, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.sky, borderRadius: 16, alignItems: 'center', gap: 12, backgroundColor: pressed ? colors.surfaceRaised : 'transparent' })}><Ionicons name="add-circle-outline" size={30} color={colors.skyLight} /><Text style={{ ...typography.body, color: colors.skyLight }}>Add your starting state</Text><Text style={{ ...typography.caption, color: colors.muted }}>Then add the states you’ll travel through.</Text></Pressable>}
+      {routeCodes.map((code, i) => <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 12 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surfaceRaised, alignItems: 'center', justifyContent: 'center' }}><Text style={{ ...typography.body, color: colors.skyLight }}>{i + 1}</Text></View>
+        <View style={{ flex: 1 }}><Text style={{ ...typography.body, color: colors.white }}>{getStateName(code)}</Text><Text style={{ ...typography.caption, color: colors.muted }}>{i === 0 ? 'Start' : i === routeCodes.length - 1 ? 'Destination' : 'Along the way'} · {code}</Text></View>
+        {[{ icon: 'arrow-up' as const, step: -1, label: 'earlier', disabled: i === 0 }, { icon: 'arrow-down' as const, step: 1, label: 'later', disabled: i === routeCodes.length - 1 }].map(action => <Pressable key={action.label} accessibilityRole="button" accessibilityLabel={`Move stop ${i + 1} ${action.label}`} disabled={action.disabled || busy} onPress={() => moveStop(i, action.step)} style={{ padding: 10, opacity: action.disabled ? 0.2 : 1 }}><Ionicons name={action.icon} size={18} color={colors.silver} /></Pressable>)}
+        <Pressable accessibilityRole="button" accessibilityLabel={`Remove stop ${i + 1}`} disabled={busy} onPress={() => updateRoute(routeCodes.filter((_, index) => index !== i))} style={{ padding: 10 }}><Ionicons name="close" size={20} color={colors.muted} /></Pressable>
+      </View>)}
+      {!!routeCodes.length && <Button variant="secondary" title="Add another state" disabled={busy || routeCodes.length >= 30} onPress={() => setPickerOpen(true)} />}
+      <Text style={{ ...typography.caption, color: colors.muted, lineHeight: 20 }}>Include every state you enter, in travel order. This creates a state brief; it does not calculate driving directions.</Text>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: codeEntry }} onPress={() => setCodeEntry(v => !v)} style={{ paddingVertical: 8 }}><Text style={{ ...typography.caption, color: colors.skyLight }}>{codeEntry ? 'Hide state codes' : 'Enter state codes instead'}</Text></Pressable>
+      {codeEntry && <TextInput accessibilityLabel="States in travel order" value={codes} editable={!busy} onChangeText={v => { setCodes(v); setTrip(null); setMessage(''); }} placeholder="VA, MD, PA" placeholderTextColor={colors.muted} autoCapitalize="characters" style={{ ...typography.body, color: colors.white, backgroundColor: colors.navy, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16 }} />}
+    </View> : <><Text style={{ color: colors.silver }}>Searches share addresses with OpenCage. Planning shares origin and destination coordinates with the configured directions provider.</Text><Address label="Origin" onSelect={setOrigin} /><Address label="Destination" onSelect={setDestination} /></>}
+    <Button title={busy ? 'Preparing…' : 'Prepare trip brief'} disabled={busy || (mode === 'manual' && !routeCodes.length)} onPress={plan} />
+    <TripStatePicker visible={pickerOpen} value={routeCodes} onClose={() => setPickerOpen(false)} onDone={states => { updateRoute(states); setPickerOpen(false); }} />
+    {message ? <Text accessibilityLiveRegion="polite" style={{ color: colors.warning }}>{message}</Text> : null}
+    {saved && <><Button variant="secondary" title={`Open saved brief (${new Date(saved.savedAt).toLocaleDateString()})`} disabled={busy} onPress={() => { setTrip(saved); setOffline(true); }} /><Button variant="row" title="Delete saved brief" disabled={busy} onPress={() => { void AsyncStorage.removeItem(key).then(() => { setSaved(null); if(offline) setTrip(null); }).catch(() => setMessage('Could not delete saved brief.')); }} /></>}
+    {trip && <>
+      <Text style={{ color: colors.sky }}>{trip.mode === 'manual' ? 'Manually selected states' : 'Driving-route states'} · {new Date(trip.savedAt).toLocaleString()}</Text>
+      {trip.routeWarning && <Text style={{ color: colors.warning }}>{trip.routeWarning}</Text>}
+      {offline && <Text style={{ color: colors.warning }}>Saved copy. Rules or your profile may have changed. Carry status is undetermined until you prepare a fresh brief online.</Text>}
+      {!offline && <Button title="Save brief on this device" onPress={() => { void AsyncStorage.setItem(key,JSON.stringify(trip)).then(() => { setSaved(trip); setMessage('Trip saved on this device.'); }).catch(() => setMessage('Could not save trip.')); }} />}
+      {trip.states.map((state,i) => <View key={`${i}-${state.stateCode}`} style={{ backgroundColor: colors.steel, padding: 18, borderRadius: 20, gap: 10 }}><Text style={{ color: colors.white, fontSize: 22 }}>{i+1}. {state.stateName}</Text><Text style={{ color: colors.warning }}>{offline || state.carryStatus === 'unknown' ? 'Unable to determine carry status' : `Reviewed guidance: ${state.carryStatus}. Check all conditions.`}</Text>{!state.keyLaws.length && <Text style={{ color: colors.silver }}>No current reviewed law summaries are available for this state.</Text>}{!getLegalReference(state.stateCode) && <Text style={{ color: colors.warning }}>Outside the 14-state beta reference coverage. Verify this jurisdiction separately.</Text>}<Button variant="secondary" title={`State references: ${state.stateName}`} onPress={() => router.push({ pathname: '/references', params: { state: state.stateCode } })} />{state.keyLaws.map(law => <View key={law.id} style={{ gap: 5 }}><Text style={{ color: colors.white }}>{law.plain_english}</Text><Text style={{ color: colors.silver }}>Reviewed: {law.last_verified ? new Date(law.last_verified).toLocaleDateString() : 'Not verified'}</Text>{law.statute_url?.startsWith('https://') && <Button title="Official source" onPress={() => { void Linking.openURL(law.statute_url!).catch(() => Alert.alert('Could not open source')); }} />}</View>)}</View>)}
+    </>}
+  </ScrollView>;
 }
-
-const pills = StyleSheet.create({
-  scroll: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border + '44',
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    backgroundColor: colors.steel,
-  },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  code: {
-    fontFamily: typography.mono.fontFamily,
-    fontSize: 12,
-    color: colors.white,
-    fontWeight: '600',
-  },
-});
-
-// ─── Empty placeholder ────────────────────────────────────────────────────────
-
-function EmptyPlaceholder() {
-  return (
-    <View style={empty.container}>
-      <Text style={empty.icon}>🗺️</Text>
-      <Text style={empty.text}>
-        Enter your origin and destination to get a legal briefing for every state on your route.
-      </Text>
-    </View>
-  );
-}
-
-const empty = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    gap: 16,
-  },
-  icon: { fontSize: 48 },
-  text: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: colors.silver,
-    textAlign: 'center',
-    lineHeight: 23,
-  },
-});
-
-// ─── Trip Screen ──────────────────────────────────────────────────────────────
-
-export default function TripScreen() {
-  const { permits, firearmsProfile } = useUserStore();
-  const { isPro, openPaywall } = useSubscription();
-
-  const [originLoc, setOriginLoc] = useState<LockedLocation | null>(null);
-  const [destLoc, setDestLoc] = useState<LockedLocation | null>(null);
-  const [originKey, setOriginKey] = useState(0);
-  const [destKey, setDestKey] = useState(0);
-
-  const [tripStates, setTripStates] = useState<TripState[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasTrip, setHasTrip] = useState(false);
-
-  const scrollRef = useRef<ScrollView>(null);
-  const cardOffsets = useRef<number[]>([]);
-
-  const canPlan = originLoc !== null && destLoc !== null;
-
-  const handlePlanTrip = useCallback(async () => {
-    if (!originLoc || !destLoc) return;
-    Keyboard.dismiss();
-    setLoading(true);
-    setHasTrip(false);
-    setTripStates([]);
-
-    const stateCodes = getStatesAlongRoute(originLoc, destLoc);
-    const briefing = await buildTripBriefing(stateCodes, permits, firearmsProfile);
-
-    setTripStates(briefing);
-    setHasTrip(true);
-    setLoading(false);
-  }, [originLoc, destLoc, permits, firearmsProfile]);
-
-  const handleReset = useCallback(() => {
-    setOriginLoc(null);
-    setDestLoc(null);
-    setTripStates([]);
-    setHasTrip(false);
-    setOriginKey(k => k + 1);
-    setDestKey(k => k + 1);
-    cardOffsets.current = [];
-  }, []);
-
-  const scrollToCard = useCallback((index: number) => {
-    const offset = cardOffsets.current[index];
-    if (offset !== undefined) {
-      scrollRef.current?.scrollTo({ y: offset, animated: true });
-    }
-  }, []);
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {/* ── Header ── */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Trip Planner</Text>
-          {hasTrip && (
-            <TouchableOpacity onPress={handleReset} style={styles.newTripBtn} activeOpacity={0.75}>
-              <Text style={styles.newTripText}>New Trip</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ── Search inputs ── */}
-        <View style={styles.searchPanel}>
-          <LocationInput
-            key={`origin-${originKey}`}
-            placeholder="Origin — city, address, or landmark"
-            value={originLoc?.label ?? ''}
-            locked={originLoc !== null}
-            onSelect={(loc) => setOriginLoc({ ...loc, locked: true })}
-            onClear={() => setOriginLoc(null)}
-          />
-          <LocationInput
-            key={`dest-${destKey}`}
-            placeholder="Destination — city, address, or landmark"
-            value={destLoc?.label ?? ''}
-            locked={destLoc !== null}
-            onSelect={(loc) => setDestLoc({ ...loc, locked: true })}
-            onClear={() => setDestLoc(null)}
-          />
-          <TouchableOpacity
-            style={[styles.planBtn, !canPlan && styles.planBtnDisabled]}
-            onPress={handlePlanTrip}
-            disabled={!canPlan || loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.white} size="small" />
-            ) : (
-              <Text style={styles.planBtnText}>Plan Trip</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Route pills ── */}
-        {hasTrip && tripStates.length > 0 && (
-          <RoutePillRow states={tripStates} onPillPress={scrollToCard} />
-        )}
-
-        {/* ── Main content ── */}
-        {!isPro ? (
-          <View style={styles.lockedOverlay}>
-            <Text style={styles.lockedIcon}>🔒</Text>
-            <Text style={styles.lockedTitle}>Trip Planner is a Pro feature</Text>
-            <Text style={styles.lockedSub}>
-              Upgrade to Pro to get a full legal briefing for every state on your route.
-            </Text>
-            <TouchableOpacity style={styles.lockedUpgradeBtn} onPress={openPaywall} activeOpacity={0.85}>
-              <Text style={styles.lockedUpgradeText}>Upgrade to Pro</Text>
-            </TouchableOpacity>
-          </View>
-        ) : loading ? (
-          <View style={styles.loadingCenter}>
-            <ActivityIndicator color={colors.sky} size="large" />
-            <Text style={styles.loadingText}>Building your trip briefing…</Text>
-          </View>
-        ) : !hasTrip ? (
-          <EmptyPlaceholder />
-        ) : (
-          <ScrollView
-            ref={scrollRef}
-            contentContainerStyle={styles.briefingScroll}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {tripStates.length === 0 ? (
-              <View style={styles.noStates}>
-                <Text style={styles.noStatesText}>No states detected along this route.</Text>
-                <Text style={styles.noStatesSub}>Try a longer or different route.</Text>
-              </View>
-            ) : (
-              tripStates.map((ts, i) => (
-                <View
-                  key={ts.stateCode + i}
-                  onLayout={(e) => {
-                    cardOffsets.current[i] = e.nativeEvent.layout.y;
-                  }}
-                >
-                  <StateBriefingCard tripState={ts} index={i} />
-                </View>
-              ))
-            )}
-          </ScrollView>
-        )}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.navy },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  title: {
-    fontFamily: typography.h1.fontFamily,
-    fontSize: typography.h1.fontSize,
-    color: colors.white,
-  },
-  newTripBtn: {
-    backgroundColor: colors.steel,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: colors.border + '55',
-  },
-  newTripText: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.skyLight,
-    fontWeight: '600',
-  },
-
-  searchPanel: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-
-  planBtn: {
-    backgroundColor: colors.sky,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  planBtnDisabled: {
-    backgroundColor: colors.steel,
-  },
-  planBtnText: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: typography.h2.fontSize,
-    color: colors.white,
-  },
-
-  loadingCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-  },
-  loadingText: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: colors.silver,
-  },
-
-  briefingScroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 48,
-  },
-
-  noStates: {
-    paddingTop: 48,
-    alignItems: 'center',
-    gap: 8,
-  },
-  noStatesText: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: colors.silver,
-  },
-  noStatesSub: {
-    fontFamily: typography.caption.fontFamily,
-    fontSize: typography.caption.fontSize,
-    color: colors.slate,
-  },
-
-  lockedOverlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-    gap: 14,
-  },
-  lockedIcon: { fontSize: 44 },
-  lockedTitle: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: typography.h2.fontSize,
-    color: colors.white,
-    textAlign: 'center',
-  },
-  lockedSub: {
-    fontFamily: typography.body.fontFamily,
-    fontSize: typography.body.fontSize,
-    color: colors.silver,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  lockedUpgradeBtn: {
-    backgroundColor: colors.sky,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    marginTop: 6,
-  },
-  lockedUpgradeText: {
-    fontFamily: typography.h2.fontFamily,
-    fontSize: typography.h2.fontSize,
-    color: colors.white,
-  },
-});

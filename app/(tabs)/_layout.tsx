@@ -1,18 +1,24 @@
+import { Platform, useWindowDimensions } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, typography } from '../../constants/theme';
 
 export default function TabsLayout() {
+  const { width } = useWindowDimensions();
+  const wide = Platform.OS === 'web' && width >= 1000;
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { backgroundColor: colors.navy, borderTopColor: colors.border },
-        tabBarActiveTintColor: colors.sky,
-        tabBarInactiveTintColor: colors.silver,
+        sceneStyle: { backgroundColor: colors.navy },
+        tabBarPosition: wide ? 'left' : 'bottom',
+        tabBarStyle: { backgroundColor: colors.navy, borderTopColor: '#132743', borderRightColor: colors.border, ...(wide ? {width:200,minWidth:200,maxWidth:200,paddingTop:32} : {height:84,paddingTop:10,paddingBottom:18}) },
+        tabBarActiveTintColor: colors.skyLight,
+        tabBarActiveBackgroundColor: colors.surfaceRaised,
+        tabBarInactiveTintColor: colors.dim,
         tabBarLabelStyle: {
           fontFamily: typography.caption.fontFamily,
-          fontSize: typography.caption.fontSize,
+          fontSize: 11,
         },
       }}
     >

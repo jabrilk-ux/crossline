@@ -9,10 +9,12 @@ export interface CrossingEvent {
 }
 
 interface LocationState {
+  browserLocation: { stateCode: string | null; timestamp: number; userId: string } | null;
   currentState: string | null;
   previousState: string | null;
   crossingHistory: CrossingEvent[];
   isTracking: boolean;
+  trackingError: string | null;
 
   // Actions
   setCurrentState: (state: string | null) => void;
@@ -24,10 +26,12 @@ interface LocationState {
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useLocationStore = create<LocationState>((set) => ({
+  browserLocation: null,
   currentState: null,
   previousState: null,
   crossingHistory: [],
   isTracking: false,
+  trackingError: null,
 
   setCurrentState: (state) => set({ currentState: state }),
 
